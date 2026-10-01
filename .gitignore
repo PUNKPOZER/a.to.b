@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.DS_Store
+backend/.venv/
+__pycache__/
+.pytest_cache/
+.env
+config.js
+test/fixtures/
+backend/models/
+assets/fonts/*.ttf

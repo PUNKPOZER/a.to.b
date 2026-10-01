@@ -1,0 +1,9 @@
+# Python 3.12 (Essentia publishes wheels for 3.9-3.13; there is no wheel for 3.14 yet)
+# essentia-tensorflow is a superset of essentia (same build + TensorFlow for the Discogs-EffNet model); do NOT install both.
+essentia-tensorflow==2.1b6.dev1177
+numpy<2
+fastapi==0.142.2
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32
+pytest
+httpx

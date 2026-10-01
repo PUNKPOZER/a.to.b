@@ -1,0 +1,4 @@
+# Isolated environment for music-structure analysis (separate from backend/.venv so Essentia's
+# numpy<2 pin never conflicts with the PyTorch/MLX stack). Apple Silicon (macOS arm64), Python 3.12.
+all-in-one-mlx==1.0.14
+demucs-mlx[convert]

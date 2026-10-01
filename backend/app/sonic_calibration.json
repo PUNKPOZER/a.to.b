@@ -1,0 +1,34 @@
+{
+ "percentiles": [
+  0,
+  1,
+  5,
+  10,
+  25,
+  50,
+  75,
+  90,
+  95,
+  99,
+  100
+ ],
+ "rawQuantiles": [
+  0.35161,
+  0.40335,
+  0.46629,
+  0.49406,
+  0.54483,
+  0.61312,
+  0.68593,
+  0.75447,
+  0.80173,
+  0.84366,
+  0.88607
+ ],
+ "pairs": 780,
+ "tracks": 40,
+ "source": "40 tracks from the developer's local DJ folders",
+ "model": "discogs-effnet-bs64",
+ "modelVersion": "1",
+ "createdAt": 1790813426
+}

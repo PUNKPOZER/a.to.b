@@ -1,0 +1,31 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>NOESIS</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src file: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+:root{--bg:#080909;--text:#f1f0eb;--t2:#9b9a94;--t3:#5d5e5a;--line:#1b1c1c;--green:#5fd08a;--coral:#ff6f5e;--amber:#e8b64a}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 "ABC Areal","Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+body{display:grid;place-items:center;-webkit-app-region:drag}.box{width:min(640px,86vw);-webkit-app-region:no-drag}
+.brand{display:flex;gap:14px;align-items:center;margin-bottom:34px}.brand b{font-weight:500;font-size:22px;letter-spacing:.16em}.brand span{font-size:9px;letter-spacing:.14em;color:var(--t3);text-transform:uppercase}
+h1{font-weight:400;font-size:38px;letter-spacing:-.02em;line-height:1.08;margin:0 0 12px}p{color:var(--t2);margin:0 0 26px;max-width:52ch}
+.bar{height:1px;background:var(--line);position:relative;margin:22px 0 10px}.bar i{position:absolute;inset:0 auto 0 0;background:var(--text);width:0;transition:width .3s}
+.lab{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);display:flex;justify-content:space-between}
+pre{margin:18px 0 0;height:96px;overflow:hidden;color:var(--t3);font:11px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-all}
+.row{display:flex;gap:10px;margin-top:22px}button{background:none;border:1px solid #2a2b2a;color:var(--text);padding:8px 16px;font:500 11px inherit;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:inherit}button:hover{border-color:var(--t2)}
+.err{color:var(--coral)}.hidden{display:none}
+</style></head><body><div class="box">
+<div class="brand"><img src="../assets/logo.svg" width="34" alt=""><div><b>NOESIS</b><br><span>developed by punk pozer</span></div></div>
+<h1 id="h">Setting up the analysis engine</h1>
+<p id="p">First launch only. NOESIS downloads Python and the audio-analysis libraries it runs locally (about 1–2 GB, a few minutes). Your music never leaves this computer.</p>
+<div class="bar"><i id="b"></i></div><div class="lab"><span id="l">Starting…</span><span id="s"></span></div>
+<pre id="log"></pre>
+<div class="row"><button id="skip">Continue without advanced analysis</button><button id="retry" class="hidden">Retry</button></div>
+</div><script>
+const $=(i)=>document.getElementById(i);
+noesisSetup.onEvent((ev)=>{
+  if(ev.label){$("l").textContent=ev.label} if(ev.total){$("s").textContent=ev.step+" / "+ev.total;$("b").style.width=Math.round((ev.step-(ev.state==="done"?0:1)+ (ev.state==="done"?0:0.4))/ev.total*100)+"%"}
+  if(ev.line){const t=$("log");t.textContent=(t.textContent+"\n"+ev.line).split("\n").slice(-6).join("\n")}
+  if(ev.state==="done"){$("b").style.width="100%";$("h").textContent="Ready";$("skip").classList.add("hidden")}
+  if(ev.state==="error"){$("h").textContent="Setup did not finish";$("h").className="err";$("l").textContent=ev.error;$("retry").classList.remove("hidden")}
+  if(ev.state==="unsupported"){$("h").textContent="Local analysis only";$("p").textContent=ev.message;$("skip").textContent="Open NOESIS";$("b").style.width="100%"}
+});
+$("skip").onclick=()=>noesisSetup.skip(); $("retry").onclick=()=>{$("retry").classList.add("hidden");$("h").className="";$("h").textContent="Setting up the analysis engine";noesisSetup.retry()};
+</script></body></html>

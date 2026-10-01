@@ -175,7 +175,7 @@ canvas.wave.mid { height: 72px; } canvas.wave.mini { height: 36px; } canvas.wave
 .legend i { width: 8px; height: 8px; display: inline-block; }
 
 .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: var(--s5) 0; }
-.metric { padding: var(--s4) var(--s4) var(--s4) 0; min-width: 0; }
+.metric { overflow: hidden; padding: var(--s4) var(--s4) var(--s4) 0; min-width: 0; }
 .metric + .metric { padding-left: var(--s4); border-left: 1px solid var(--line); }
 .metric .v { font-size: clamp(24px, 2.6vw, 36px); font-weight: 400; letter-spacing: -0.02em; line-height: 1.1; margin: 6px 0 2px; white-space: nowrap; }
 .metric .v small { font-size: 13px; color: var(--text-3); margin-left: 4px; letter-spacing: 0; }
@@ -311,3 +311,6 @@ button.chip { cursor: pointer; transition: all var(--t-fast); } button.chip:hove
 .ctx-toggle { display: none; }
 
 .context .metrics { margin-left: var(--s5); margin-right: var(--s5); } .context .metric .v { font-size: 26px; }
+
+.metric .v:has(.txt) { white-space: normal; }
+.metric .v .txt { white-space: normal; font-size: 20px; line-height: 1.15; letter-spacing: -0.01em; overflow-wrap: anywhere; }

@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2] / "structure"
 PYTHON = Path(os.getenv("SELECTOR_STRUCTURE_PYTHON", ROOT / ".venv" / "bin" / "python"))
-SCRIPT = ROOT / "run_allin1.py"
+SCRIPT = Path(os.getenv("SELECTOR_STRUCTURE_SCRIPT", ROOT / "run_allin1.py"))
 TIMEOUT_S = int(os.getenv("SELECTOR_STRUCTURE_TIMEOUT", "1200"))
 MAJOR_DB = 3.0          # section-to-section loudness change treated as a major energy transition
 SHORT_EDGE_S = 3.0      # 'start'/'end' markers shorter than this are merged into their neighbour
@@ -34,7 +34,11 @@ def run(audio_path: str) -> dict:
     fd, out = tempfile.mkstemp(suffix=".json", prefix="sel_struct_")
     os.close(fd)
     try:
-        p = subprocess.run([str(PYTHON), str(SCRIPT), audio_path, out], capture_output=True, timeout=TIMEOUT_S)
+        env = dict(os.environ)
+        ff = os.getenv("SELECTOR_FFMPEG")
+        if ff and os.path.isabs(ff):  # make the bundled ffmpeg visible to librosa / audio libraries in the child
+            env["PATH"] = os.path.dirname(ff) + os.pathsep + env.get("PATH", "")
+        p = subprocess.run([str(PYTHON), str(SCRIPT), audio_path, out], capture_output=True, timeout=TIMEOUT_S, env=env)
         if p.returncode != 0:
             raise RuntimeError("structure analyzer failed: " + p.stderr.decode("utf-8", "replace")[-300:])
         return json.loads(Path(out).read_text())

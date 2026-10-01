@@ -175,16 +175,20 @@ Ranking detail (`audio/genre-rank.js`): the displayed genre is the model's top s
 
 ## Desktop app (macOS / Windows)
 
-NOESIS also runs as a standalone app in its own window (Electron): the same interface, served from a loopback-only server inside the app (so Web Workers, WASM and IndexedDB behave like on the web). Analysis, library, similarity, sets and playback work offline with no Python. The advanced backend (Essentia Python, structure, Discogs-EffNet genres/similarity) stays optional: in a repo checkout that has been set up (`backend/.venv`) the app starts it automatically; otherwise run it separately and the app connects to `http://localhost:8000`.
+Download from **[Releases](https://github.com/PUNKPOZER/noesis/releases)**: `NOESIS-<version>-arm64.dmg` (Apple Silicon Mac) or `NOESIS Setup <version>.exe` (Windows). Open the .dmg and drag NOESIS to Applications.
+
+**Mac (Apple Silicon): the full version out of the box.** On the first launch NOESIS sets up its own analysis engine (progress screen, ~1.7 GB, a few minutes, internet needed once): Python 3.12 via the bundled `uv`, Essentia + TensorFlow, the All-In-One structure analyzer and the Discogs-EffNet model; ffmpeg is bundled. The engine lives in `~/Library/Application Support/NOESIS/engine` and starts and stops with the app (FastAPI on `127.0.0.1:8000`). Every later launch opens straight away. Help → *Repair advanced analysis…* reinstalls it. Everything runs locally; the music never leaves the computer.
+**Windows: interface and local analysis only (for now).** Essentia publishes no Windows build, so the advanced engine (precise BPM/key, structure, Discogs genres and sonic similarity) cannot run natively there yet; the app works fully offline with Essentia.js + the browser DSP and says so in Settings. A Windows port of the engine (ONNX Runtime) is the next step.
+Intel Macs are not built (the structure analyzer needs Apple Silicon).
+
+Unsigned builds: macOS says "cannot be opened because the developer cannot be verified" — right-click the app → **Open** once (or System Settings → Privacy & Security → Open Anyway); Windows SmartScreen says "Windows protected your PC" — **More info → Run anyway**. Removing the warnings needs an Apple Developer ID / a Windows code-signing certificate.
+The ABC Areal fonts are bundled only in builds made where `assets/fonts/*.ttf` exist (CI releases use the fallback font) — mind the font licence before distributing such builds.
 
 ```bash
 npm install && npm run vendor
-npm run desktop            # open the app window from the repo (starts the backend too if it is set up)
-npm run dist:mac           # -> release/NOESIS-<version>.dmg (arm64 + Intel)
-npm run dist:win           # -> release/NOESIS Setup <version>.exe  (build this on Windows or via the workflow below)
+npm run desktop            # open the app window from a checkout (uses backend/.venv if it is set up)
+npm run dist:mac           # -> release/NOESIS-<version>-arm64.dmg
+npm run dist:win           # -> release/NOESIS Setup <version>.exe (build on Windows, or via the workflow)
+git tag v0.3.1 && git push --tags   # the "Desktop installers" workflow builds both and attaches them to a Release
 ```
-
-Installers for both systems are built on GitHub: **Actions → Desktop installers → Run workflow** (files appear as artifacts), or push a tag `v0.3.0` to attach the `.dmg` and `.exe` to a Release.
-Builds are **unsigned**: macOS shows "cannot be opened because the developer cannot be verified" — right-click the app → **Open** once (or System Settings → Privacy & Security → Open Anyway); Windows SmartScreen shows "Windows protected your PC" — **More info → Run anyway**. Removing these warnings needs an Apple Developer ID / a Windows code-signing certificate.
-Fonts: the ABC Areal files are bundled only in builds made on a machine where `assets/fonts/*.ttf` exist (CI builds use the fallback font) — keep the font licence in mind before distributing such builds.
-`npm run icon` regenerates `build/icon.png` from `assets/logo.svg`.
+Developer mode: running from a checkout that has `backend/.venv` uses that backend instead of installing the engine. `npm run icon` regenerates `build/icon.png` from `assets/logo.svg`.

@@ -22,7 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import analysis, sonic, structure
 from .embeddings import FileEmbeddingStore
 from pydantic import BaseModel
-from .decode import DecodeError, decode_mono, decode_stereo, duration_seconds
+from .decode import DecodeError, decode_mono, decode_stereo, duration_seconds, ffmpeg_available
 
 ANALYSIS_VERSION = 3  # 1 legacy, 2 essentia.js, 3 essentia backend
 MAX_UPLOAD_BYTES = int(os.getenv("SELECTOR_MAX_UPLOAD_MB", "200")) * 1024 * 1024
@@ -54,7 +54,7 @@ def health():
     return {"status": "ok", "analysisVersion": ANALYSIS_VERSION, "essentia": essentia.__version__,
             "maxUploadMb": MAX_UPLOAD_BYTES // 1024 // 1024,
             "structure": {"available": structure.available(), "analyzer": "all-in-one-mlx"},
-            "sonic": sonic.info()}
+            "sonic": sonic.info(), "ffmpeg": ffmpeg_available()}
 
 
 @app.get("/api/analysis/{aid}")

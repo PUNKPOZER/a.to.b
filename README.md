@@ -172,3 +172,19 @@ Waveform с цветной полосой секций (intro/verse/chorus/break
 With the backend, the genre comes from the **Discogs-EffNet style activations** (a model trained to classify 400 Discogs music styles, e.g. *Drum n Bass*, *Dubstep*, *Hardcore Hip-Hop*, *House*), averaged over the whole track; the parent genre (Electronic, Hip Hop, …) and the next-best styles are shown, and the activation is the model's own number (not a probability of being "right" — ambiguous tracks stay low, e.g. House 15% next to Breakbeat 14%). The old rule-based guess (tempo/energy windows) is kept in `analysis.genreLegacy` and is the only genre available without a backend (it is approximate and labelled so). A genre you set by hand always wins. Genre similarity between tracks also uses the style activations. On the 8 test tracks the legacy guess said Downtempo / Ambient / Experimental for everything; the model gave Drum n Bass, Dubstep, Hardcore Hip-Hop, Techno and House.
 
 Ranking detail (`audio/genre-rank.js`): the displayed genre is the model's top style, except that *Halftime* (a rhythmic feel, not a filing genre) is demoted ×0.75 so e.g. Halftime 0.45 / Drum n Bass 0.40 reads as Drum n Bass. A tempo-window prior was tested on 56 tracks from a real DJ library and dropped: it changed no result and would hurt wherever the measured BPM is off by an octave or 3:2 ratio. Genres seen on that library include Techno, House, Dubstep, Bassline, Electro, Drum n Bass, Hardstyle, Schranz, Psy-Trance, Trance, Breaks, Big Beat, Nu-Disco, Grime, Trap and Hardcore Hip-Hop.
+
+## Desktop app (macOS / Windows)
+
+NOESIS also runs as a standalone app in its own window (Electron): the same interface, served from a loopback-only server inside the app (so Web Workers, WASM and IndexedDB behave like on the web). Analysis, library, similarity, sets and playback work offline with no Python. The advanced backend (Essentia Python, structure, Discogs-EffNet genres/similarity) stays optional: in a repo checkout that has been set up (`backend/.venv`) the app starts it automatically; otherwise run it separately and the app connects to `http://localhost:8000`.
+
+```bash
+npm install && npm run vendor
+npm run desktop            # open the app window from the repo (starts the backend too if it is set up)
+npm run dist:mac           # -> release/NOESIS-<version>.dmg (arm64 + Intel)
+npm run dist:win           # -> release/NOESIS Setup <version>.exe  (build this on Windows or via the workflow below)
+```
+
+Installers for both systems are built on GitHub: **Actions → Desktop installers → Run workflow** (files appear as artifacts), or push a tag `v0.3.0` to attach the `.dmg` and `.exe` to a Release.
+Builds are **unsigned**: macOS shows "cannot be opened because the developer cannot be verified" — right-click the app → **Open** once (or System Settings → Privacy & Security → Open Anyway); Windows SmartScreen shows "Windows protected your PC" — **More info → Run anyway**. Removing these warnings needs an Apple Developer ID / a Windows code-signing certificate.
+Fonts: the ABC Areal files are bundled only in builds made on a machine where `assets/fonts/*.ttf` exist (CI builds use the fallback font) — keep the font licence in mind before distributing such builds.
+`npm run icon` regenerates `build/icon.png` from `assets/logo.svg`.

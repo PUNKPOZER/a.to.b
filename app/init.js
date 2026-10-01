@@ -14,3 +14,5 @@ renderFilterTags();
 setActiveTab((location.hash || "#analyze").slice(1), { push: false });
 window.addEventListener("hashchange", () => setActiveTab((location.hash || "#analyze").slice(1), { push: false }));
 refreshBackendPill();
+// the backend may start after the page (desktop app launches it in the background): keep the status honest
+setInterval(() => { if (!document.hidden && BackendClient.apiUrl()) refreshBackendPill(); }, 15000);

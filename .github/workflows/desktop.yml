@@ -1,0 +1,42 @@
+# Builds the NOESIS desktop installers (macOS .dmg, Windows .exe) with Electron.
+# Run manually (Actions -> Desktop installers -> Run workflow) to get the files as build artifacts, or push a tag
+# like v0.3.0 to also attach them to a GitHub Release.
+name: Desktop installers
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            args: --mac --publish never
+            glob: release/*.dmg
+          - os: windows-latest
+            args: --win --publish never
+            glob: release/*.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run vendor
+      - run: npx electron-builder ${{ matrix.args }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"   # unsigned builds (see README: first-launch warnings)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noesis-${{ matrix.os }}
+          path: ${{ matrix.glob }}
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.glob }}

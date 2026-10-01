@@ -9,3 +9,4 @@ config.js
 test/fixtures/
 backend/models/
 assets/fonts/*.ttf
+release/

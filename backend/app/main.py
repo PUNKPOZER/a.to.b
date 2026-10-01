@@ -36,7 +36,7 @@ _struct_pool = ThreadPoolExecutor(max_workers=1)  # All-In-One / EffNet are RAM 
 
 # Explicit origins only (no wildcard). Extend with SELECTOR_CORS_ORIGINS="https://a,https://b".
 ORIGINS = ["http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:8000",
-           "https://punkpozer.github.io"] + [o for o in os.getenv("SELECTOR_CORS_ORIGINS", "").split(",") if o]
+           "http://127.0.0.1:8787", "http://localhost:8787", "https://punkpozer.github.io"] + [o for o in os.getenv("SELECTOR_CORS_ORIGINS", "").split(",") if o]  # 8787 = NOESIS desktop app
 
 app = FastAPI(title="NOESIS analysis API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_methods=["GET", "POST"], allow_headers=["*"])

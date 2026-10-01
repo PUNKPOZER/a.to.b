@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app import main as app_main
 
 SR = 44100
 
@@ -50,6 +51,7 @@ def test_health(client):
     assert r.status_code == 200 and r.json()["status"] == "ok"
 
 
+@pytest.mark.skipif(app_main.analysis is None, reason="Essentia not installed (portable engine)")
 def test_known_bpm_and_key_wav(client):
     r = client.post("/api/analyze", files={"file": ("t.wav", wav_bytes(make_track(128.0)), "audio/wav")})
     assert r.status_code == 200, r.text
@@ -63,6 +65,7 @@ def test_known_bpm_and_key_wav(client):
     assert client.get("/api/analysis/" + j["id"]).status_code == 200
 
 
+@pytest.mark.skipif(app_main.analysis is None, reason="Essentia not installed (portable engine)")
 def test_known_bpm_mp3(client, tmp_path):
     wav = tmp_path / "a.wav"; wav.write_bytes(wav_bytes(make_track(124.0)))
     mp3 = tmp_path / "a.mp3"
@@ -179,3 +182,62 @@ def test_embed_endpoint_real_model_and_cache(client):
     pw = client.post("/api/sonic/pairwise", json={"ids": [j["id"]]}).json()
     assert pw["ids"] == [j["id"]] and abs(pw["raw"][0][0] - 1.0) < 1e-3
     assert client.get("/api/health").json()["sonic"]["available"] is True
+
+
+# ---------------- Portable engine (ONNX Runtime, no Essentia) ----------------
+import subprocess, sys, textwrap  # noqa: E402
+from app import effnet_onnx  # noqa: E402
+
+
+def test_onnx_frontend_shapes_and_filterbank():
+    audio = np.random.RandomState(0).randn(16000 * 10).astype(np.float32) * 0.1
+    mel = effnet_onnx.log_mel(audio)
+    assert mel.shape[1] == 96 and abs(mel.shape[0] - (16000 * 10 / 256 + 1)) <= 2
+    p = effnet_onnx.patches(mel)
+    assert p.shape[1:] == (128, 96) and len(p) == (mel.shape[0] - 128) // 62 + 1
+    fb = effnet_onnx.mel_filterbank()
+    assert fb.shape == (96, 257) and (fb >= 0).all() and np.allclose(fb.sum(axis=1), 0.032, atol=4e-3)  # area-normalised triangles
+
+
+def _onnx_model():
+    try:
+        return sonic_mod.ensure_model("onnxruntime")
+    except Exception as e:  # noqa: BLE001 - offline CI
+        pytest.skip(f"ONNX model not available: {e}")
+
+
+@pytest.mark.skipif(sonic_mod.runtime() != "essentia-tensorflow", reason="needs the Essentia TF runtime to compare against")
+def test_onnx_runtime_matches_essentia_tensorflow():
+    import essentia.standard as es
+    path = _onnx_model()
+    audio = make_track(124.0, seconds=20)
+    audio16 = np.interp(np.linspace(0, len(audio) - 1, 16000 * 20), np.arange(len(audio)), audio).astype(np.float32)
+    ref = es.TensorflowPredictEffnetDiscogs(graphFilename=str(sonic_mod.ensure_model("essentia-tensorflow")), output="PartitionedCall:1")(audio16)
+    emb, _ = effnet_onnx.EffnetOnnx(str(path)).run(audio16)
+    assert emb.shape == ref.shape
+    cos = (emb * ref).sum(1) / (np.linalg.norm(emb, axis=1) * np.linalg.norm(ref, axis=1))
+    assert cos.min() > 0.9999
+
+
+def test_portable_mode_end_to_end():
+    _onnx_model()
+    code = textwrap.dedent("""
+        import io, wave, numpy as np
+        from fastapi.testclient import TestClient
+        from app.main import app
+        c = TestClient(app)
+        h = c.get("/api/health").json()
+        assert h["analysis"]["available"] is False and h["essentia"] is None, h
+        assert h["sonic"]["runtime"] == "onnxruntime", h
+        sr = 44100; t = np.arange(sr * 12) / sr
+        y = (0.3 * np.sin(2 * np.pi * 220 * t) * (1 + np.sin(2 * np.pi * 2 * t))).astype("<f4")
+        b = io.BytesIO(); w = wave.open(b, "wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr); w.writeframes((y * 32767).astype("<i2").tobytes()); w.close()
+        r = c.post("/api/embed", files={"file": ("t.wav", b.getvalue(), "audio/wav")}); assert r.status_code == 200, r.text
+        j = r.json(); assert j["dims"] == 1280 and j["parents"], j
+        assert c.post("/api/analyze", files={"file": ("t.wav", b.getvalue(), "audio/wav")}).status_code == 503
+        print("portable-ok")
+    """)
+    import os, tempfile
+    env = {**os.environ, "SELECTOR_PORTABLE": "1", "SELECTOR_CACHE_DIR": tempfile.mkdtemp()}
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, cwd=os.path.dirname(os.path.dirname(__file__)), timeout=300)
+    assert "portable-ok" in r.stdout, r.stdout + r.stderr[-800:]

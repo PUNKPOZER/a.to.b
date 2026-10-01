@@ -54,7 +54,7 @@ const UI = (() => {
     const bAvail = an.backend && an.backend.status === "AVAILABLE";
     const items = [
       ["Local", st(true, false, false)],
-      ["Essentia", st(bAvail, busy === "ADVANCED_ANALYSIS", an.backend && an.backend.status === "ERROR" || busy === "FAILED")],
+      ["Essentia", an.backend && an.backend.status === "UNAVAILABLE" ? "todo" : st(bAvail, busy === "ADVANCED_ANALYSIS", an.backend && an.backend.status === "ERROR" || busy === "FAILED")],
       ["Structure", st(an.structure && an.structure.status === "AVAILABLE", busy === "STRUCTURE_ANALYSIS", an.structure && an.structure.status === "ERROR")],
       ["Embedding", st(an.sonic && an.sonic.status === "AVAILABLE", busy === "SONIC_EMBEDDING", an.sonic && an.sonic.status === "ERROR")],
     ];

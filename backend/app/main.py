@@ -14,12 +14,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import essentia
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import analysis, sonic, structure
+from . import sonic, structure
 from .embeddings import FileEmbeddingStore
 from pydantic import BaseModel
 from .decode import DecodeError, decode_mono, decode_stereo, duration_seconds, ffmpeg_available
@@ -38,6 +37,15 @@ _struct_pool = ThreadPoolExecutor(max_workers=1)  # All-In-One / EffNet are RAM 
 ORIGINS = ["http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:8000",
            "http://127.0.0.1:8787", "http://localhost:8787", "https://punkpozer.github.io"] + [o for o in os.getenv("SELECTOR_CORS_ORIGINS", "").split(",") if o]  # 8787 = NOESIS desktop app
 
+try:  # Essentia has no Windows build: the engine then runs in portable mode (sonic/genre via ONNX, no whole-track MIR)
+    if os.getenv("SELECTOR_PORTABLE") == "1":
+        raise ImportError("portable mode forced")
+    import essentia
+    from . import analysis
+    ESSENTIA_VERSION = essentia.__version__
+except ImportError:
+    analysis, ESSENTIA_VERSION = None, None
+
 app = FastAPI(title="NOESIS analysis API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_methods=["GET", "POST"], allow_headers=["*"])
 _pool = ThreadPoolExecutor(max_workers=int(os.getenv("SELECTOR_WORKERS", "1")))  # CPU-bound: serialize by default
@@ -51,7 +59,7 @@ def _cache_path(aid: str) -> Path:
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "analysisVersion": ANALYSIS_VERSION, "essentia": essentia.__version__,
+    return {"status": "ok", "analysisVersion": ANALYSIS_VERSION, "essentia": ESSENTIA_VERSION, "analysis": {"available": analysis is not None},
             "maxUploadMb": MAX_UPLOAD_BYTES // 1024 // 1024,
             "structure": {"available": structure.available(), "analyzer": "all-in-one-mlx"},
             "sonic": sonic.info(), "ffmpeg": ffmpeg_available()}
@@ -67,6 +75,8 @@ def get_analysis(aid: str):
 
 @app.post("/api/analyze")
 async def analyze(file: UploadFile = File(...)):
+    if analysis is None:
+        raise HTTPException(503, "whole-track Essentia analysis is not available in portable mode")
     ext = Path(file.filename or "").suffix.lower()
     if ext not in ALLOWED_EXT:
         raise HTTPException(415, f"unsupported file type {ext or '(none)'}")
@@ -204,7 +214,7 @@ def _embed_summary(aid, vec, meta, extra=None):
 async def embed_track(file: UploadFile = File(...)):
     """Compute (or return cached) Discogs-EffNet embedding. Cache key: audio hash + model id + model version."""
     if not sonic.available():
-        raise HTTPException(503, "sonic embedding model runtime not installed (essentia-tensorflow)")
+        raise HTTPException(503, "sonic embedding runtime not installed (essentia-tensorflow or onnxruntime)")
     ext = Path(file.filename or "").suffix.lower()
     if ext not in ALLOWED_EXT:
         raise HTTPException(415, f"unsupported file type {ext or '(none)'}")

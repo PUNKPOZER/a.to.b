@@ -1,0 +1,7 @@
+# Portable engine (Windows / Linux / Intel Mac): no Essentia, no structure analyzer.
+# Discogs-EffNet genres + sonic similarity run through ONNX Runtime. Python 3.10+.
+numpy>=1.26
+onnxruntime>=1.18
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9

@@ -1,7 +1,10 @@
 """Sonic similarity: Discogs-EffNet audio embeddings (official Essentia model) + calibration + providers.
 
-Model: discogs-effnet-bs64-1 (Essentia Models, "EffnetDiscogs", Alonso-Jimenez et al., ISMIR 2022). Frozen TensorFlow
-graph run through Essentia's own `TensorflowPredictEffnetDiscogs` algorithm (package essentia-tensorflow), CPU.
+Model: discogs-effnet-bs64-1 (Essentia Models, "EffnetDiscogs", Alonso-Jimenez et al., ISMIR 2022). Two interchangeable
+runtimes give the same numbers (verified: embedding cosine 1.000000, activations within 1e-5):
+  * "essentia-tensorflow": the frozen TensorFlow graph through Essentia's `TensorflowPredictEffnetDiscogs` (macOS / Linux);
+  * "onnxruntime": the official ONNX export of the same model + a numpy re-implementation of Essentia's mel front-end
+    (`effnet_onnx.py`) — the portable path used on Windows, where Essentia has no build. CPU only in both cases.
 Input 16 kHz mono; output per ~1 s frame: 1280-d embedding (PartitionedCall:1) and 400 Discogs style activations
 (PartitionedCall:0). Model license: CC BY-NC-SA 4.0 (non-commercial; proprietary licence available from the MTG).
 
@@ -25,11 +28,13 @@ warnings.filterwarnings("ignore")
 
 MODEL_ID = "discogs-effnet-bs64"
 MODEL_VERSION = "1"
-MODEL_FILE = "discogs-effnet-bs64-1.pb"
-META_FILE = "discogs-effnet-bs64-1.json"
 BASE_URL = "https://essentia.upf.edu/models/feature-extractors/discogs-effnet/"
-SHA256 = {MODEL_FILE: "3ed9af50d5367c0b9c795b294b00e7599e4943244f4cbd376869f3bfc87721b1",
-          META_FILE: "a35003202384735c33154e20264267f9941705218a7b93202b655a1d408d4ff6"}
+FILES = {  # runtime -> {file: sha256}; the class list (400 Discogs styles) is identical in both json files
+    "essentia-tensorflow": {"discogs-effnet-bs64-1.pb": "3ed9af50d5367c0b9c795b294b00e7599e4943244f4cbd376869f3bfc87721b1",
+                            "discogs-effnet-bs64-1.json": "a35003202384735c33154e20264267f9941705218a7b93202b655a1d408d4ff6"},
+    "onnxruntime": {"discogs-effnet-bsdynamic-1.onnx": "a280825b334797cf677939db8cd5762c0392aedd0ca6415dbc1cd083f045e43c",
+                    "discogs-effnet-bsdynamic-1.json": "a2e85b2e7372d5f8e0f35bdd6aeae1139f101087d183d0b2fb60b0ea0f01a0ff"},
+}
 MODEL_DIR = Path(os.getenv("SELECTOR_MODEL_DIR", Path(__file__).resolve().parents[1] / "models"))
 SAMPLE_RATE = 16000
 POOLING = "mean"
@@ -48,10 +53,30 @@ def _sha(path: Path) -> str:
     return h.hexdigest()
 
 
-def ensure_model() -> Path:
-    """Download (once) and verify the official model files."""
+def runtime() -> str | None:
+    """Which runtime will run the model. SELECTOR_PORTABLE=1 forces the ONNX path (used for testing / Windows)."""
+    if os.getenv("SELECTOR_PORTABLE") != "1" and os.getenv("SELECTOR_SONIC_RUNTIME") != "onnx":
+        try:
+            import essentia.standard as es
+            if hasattr(es, "TensorflowPredictEffnetDiscogs"):
+                return "essentia-tensorflow"
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        import onnxruntime  # noqa: F401
+        return "onnxruntime"
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def ensure_model(rt: str | None = None) -> Path:
+    """Download (once) and verify the official model files for the runtime; returns the model file path."""
+    rt = rt or runtime()
+    if rt is None:
+        raise RuntimeError("no runtime for the Discogs-EffNet model (install essentia-tensorflow or onnxruntime)")
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    for name, want in SHA256.items():
+    files = FILES[rt]
+    for name, want in files.items():
         p = MODEL_DIR / name
         if p.exists() and _sha(p) == want:
             continue
@@ -61,32 +86,35 @@ def ensure_model() -> Path:
             tmp.unlink(missing_ok=True)
             raise RuntimeError(f"checksum mismatch for {name}")
         tmp.replace(p)
-    return MODEL_DIR / MODEL_FILE
+    return MODEL_DIR / next(n for n in files if not n.endswith(".json"))
 
 
 def available() -> bool:
-    try:
-        import essentia.standard as es
-        return hasattr(es, "TensorflowPredictEffnetDiscogs")
-    except Exception:  # noqa: BLE001
-        return False
+    return runtime() is not None
 
 
 def info() -> dict:
-    return {"available": available(), "model": MODEL_ID, "modelVersion": MODEL_VERSION, "pooling": POOLING,
-            "license": "CC BY-NC-SA 4.0", "modelDownloaded": all((MODEL_DIR / n).exists() for n in SHA256)}
+    rt = runtime()
+    have = rt is not None and all((MODEL_DIR / n).exists() for n in FILES[rt])
+    return {"available": rt is not None, "runtime": rt, "model": MODEL_ID, "modelVersion": MODEL_VERSION, "pooling": POOLING,
+            "license": "CC BY-NC-SA 4.0", "modelDownloaded": have}
 
 
 def _load():
     if _models:
         return _models
-    import essentia.standard as es
-    graph = str(ensure_model())
-    meta = json.loads((MODEL_DIR / META_FILE).read_text())
-    emb = es.TensorflowPredictEffnetDiscogs(graphFilename=graph, output="PartitionedCall:1")
-    pred = es.TensorflowPredictEffnetDiscogs(graphFilename=graph, output="PartitionedCall:0")
-    hop_frames = emb.paramValue("patchHopSize")
-    _models.update(emb=emb, pred=pred, classes=meta["classes"], hop_sec=hop_frames * 256 / SAMPLE_RATE)
+    rt = runtime()
+    path = ensure_model(rt)
+    meta = json.loads((MODEL_DIR / next(n for n in FILES[rt] if n.endswith(".json"))).read_text())
+    if rt == "essentia-tensorflow":
+        import essentia.standard as es
+        emb = es.TensorflowPredictEffnetDiscogs(graphFilename=str(path), output="PartitionedCall:1")
+        pred = es.TensorflowPredictEffnetDiscogs(graphFilename=str(path), output="PartitionedCall:0")
+        _models.update(runtime=rt, emb=emb, pred=pred, hop_sec=emb.paramValue("patchHopSize") * 256 / SAMPLE_RATE)
+    else:
+        from .effnet_onnx import EffnetOnnx, HOP, PATCH_HOP
+        _models.update(runtime=rt, onnx=EffnetOnnx(str(path)), hop_sec=PATCH_HOP * HOP / SAMPLE_RATE)
+    _models["classes"] = meta["classes"]
     return _models
 
 
@@ -94,8 +122,11 @@ def embed(audio16k: np.ndarray) -> dict:
     """audio16k: float32 mono @16 kHz. Returns frames, track-level mean vector, top Discogs styles."""
     with _lock:
         m = _load()
-        frames = np.asarray(m["emb"](audio16k), dtype=np.float32)
-        preds = np.asarray(m["pred"](audio16k), dtype=np.float32)
+        if m["runtime"] == "essentia-tensorflow":
+            frames = np.asarray(m["emb"](audio16k), dtype=np.float32)
+            preds = np.asarray(m["pred"](audio16k), dtype=np.float32)
+        else:
+            frames, preds = m["onnx"].run(audio16k)
     if frames.ndim != 2 or frames.shape[0] == 0:
         raise ValueError("model returned no embedding frames (audio too short?)")
     mean = frames.mean(axis=0)

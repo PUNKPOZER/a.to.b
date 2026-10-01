@@ -8,7 +8,7 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const ENGINE_VERSION = 2; // bump when the backend/structure sources or requirements change -> re-sync + reinstall
+const ENGINE_VERSION = 2; // dependency set. Sources are re-synced on every start, so bump this only when the requirements change
 const WIN = process.platform === "win32";
 const MAC_ARM = process.platform === "darwin" && process.arch === "arm64";
 const exe = (n) => (WIN ? n + ".exe" : n);
@@ -23,8 +23,10 @@ const P = () => ({
   py: path.join(home(), "venv", WIN ? "Scripts" : "bin", exe("python")), spy: path.join(home(), "structure-venv", "bin", "python"),
 });
 
-// Essentia ships no Windows wheels; the full engine needs macOS (arm64 build is what we ship).
-const supported = () => MAC_ARM || process.env.NOESIS_FORCE_ENGINE === "1";
+// macOS arm64: full engine (Essentia + TensorFlow + All-In-One). Everything else (Windows): portable engine — Discogs-EffNet
+// through ONNX Runtime, no Essentia (it has no Windows build) and no structure analyzer.
+const FULL = MAC_ARM;
+const supported = () => true;
 const readState = () => { try { return JSON.parse(fs.readFileSync(P().state, "utf8")); } catch { return null; } };
 const isReady = () => { const s = readState(); return !!(s && s.version === ENGINE_VERSION && fs.existsSync(P().py)); };
 
@@ -48,10 +50,10 @@ async function setup(emit) {
       fs.mkdirSync(p.models, { recursive: true }); fs.mkdirSync(p.cache, { recursive: true });
     }],
     ["Installing Python 3.12", () => run(p.uv, ["venv", "--python", "3.12", "--clear", p.venv], { env: uvEnv(), onLine: (l) => emit({ line: l }) })],
-    ["Installing analysis libraries (Essentia, TensorFlow) — a few minutes", () => run(p.uv, ["pip", "install", "--python", p.py, "-r", path.join(p.backend, "requirements.txt")], { env: uvEnv(), onLine: (l) => emit({ line: l }) })],
+    [FULL ? "Installing analysis libraries (Essentia, TensorFlow) — a few minutes" : "Installing analysis libraries (ONNX Runtime)", () => run(p.uv, ["pip", "install", "--python", p.py, "-r", path.join(p.backend, FULL ? "requirements.txt" : "requirements-portable.txt")], { env: uvEnv(), onLine: (l) => emit({ line: l }) })],
     ["Downloading the Discogs-EffNet model", () => run(p.py, ["-c", "from app import sonic; print(sonic.ensure_model())"], { cwd: p.backend, env: { SELECTOR_MODEL_DIR: p.models }, onLine: (l) => emit({ line: l }) })],
   ];
-  if (MAC_ARM) steps.push(
+  if (FULL) steps.push(
     ["Installing structure analysis (All-In-One) — a few minutes", async () => {
       await run(p.uv, ["venv", "--python", "3.12", "--clear", p.svenv], { env: uvEnv(), onLine: (l) => emit({ line: l }) });
       await run(p.uv, ["pip", "install", "--python", p.spy, "-r", path.join(p.structure, "requirements.txt")], { env: uvEnv(), onLine: (l) => emit({ line: l }) });
@@ -65,10 +67,19 @@ async function setup(emit) {
     }
   }
   try { fs.rmSync(path.join(home(), "uv-cache"), { recursive: true, force: true }); } catch {} // downloaded wheels are no longer needed
-  fs.writeFileSync(p.state, JSON.stringify({ version: ENGINE_VERSION, structure: MAC_ARM && fs.existsSync(p.spy), completedAt: Date.now() }));
+  fs.writeFileSync(p.state, JSON.stringify({ version: ENGINE_VERSION, structure: FULL && fs.existsSync(p.spy), full: FULL, completedAt: Date.now() }));
   emit({ state: "done", step: total, total, label: "Ready" });
 }
 const uvEnv = () => ({ UV_PYTHON_INSTALL_DIR: path.join(home(), "python"), UV_CACHE_DIR: path.join(home(), "uv-cache"), UV_NO_PROGRESS: "1" });
+
+// The Python sources travel with the app and may change between releases while the installed libraries stay valid:
+// refresh them from the bundle on every start (a few hundred KB).
+function syncSources() {
+  const p = P(), r = res();
+  fs.rmSync(path.join(p.backend, "app"), { recursive: true, force: true });
+  fs.cpSync(path.join(r, "backend"), p.backend, { recursive: true });
+  fs.cpSync(path.join(r, "structure"), p.structure, { recursive: true });
+}
 
 async function healthy() { try { return (await fetch("http://127.0.0.1:8000/api/health", { signal: AbortSignal.timeout(1500) })).ok; } catch { return false; } }
 
@@ -77,6 +88,7 @@ async function start(origin) {
   if (await healthy()) return "external";
   const p = P();
   if (!isReady()) return null;
+  try { syncSources(); } catch (e) { /* keep the previous sources */ }
   const st = readState();
   const env = {
     SELECTOR_CORS_ORIGINS: origin, SELECTOR_FFMPEG: p.ffmpeg, SELECTOR_MODEL_DIR: p.models, SELECTOR_CACHE_DIR: p.cache,

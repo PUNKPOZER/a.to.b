@@ -20,9 +20,14 @@ async function runAdvanced(id, file) {
   try {
     const h = await BackendClient.health();
     if (!h.online) { t.analysis.backend = { status: "OFFLINE", reason: h.reason }; t.analysis.status = "LOCAL_ANALYSIS"; return; }
-    const r = await BackendClient.analyze(file);
-    if (!r.ok) { t.analysis.backend = { status: "ERROR", reason: r.reason }; t.analysis.status = "FAILED"; return; }
-    applyBackendResult(t, r.result);
+    // Portable engines (e.g. Windows) have no whole-track Essentia analysis: skip it and keep going with structure / sonic.
+    if (h.info && h.info.analysis && h.info.analysis.available === false) {
+      t.analysis.backend = { status: "UNAVAILABLE", reason: "this engine runs without Essentia (portable mode) — BPM/key come from the in-browser analysis" };
+    } else {
+      const r = await BackendClient.analyze(file);
+      if (!r.ok) { t.analysis.backend = { status: "ERROR", reason: r.reason }; t.analysis.status = "FAILED"; return; }
+      applyBackendResult(t, r.result);
+    }
     await runStructureStage(t, file, h);
     await runSonicStage(t, file, h);
     t.analysis.status = "COMPLETE";

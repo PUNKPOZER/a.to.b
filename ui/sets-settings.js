@@ -77,7 +77,7 @@ document.getElementById("settingsView").addEventListener("click", async (e) => {
     try { v ? localStorage.setItem("ts_api_url", v) : localStorage.removeItem("ts_api_url"); } catch (er) {}
     const st = document.getElementById("apiStatus"); st.textContent = "checking…";
     const h = await refreshBackendPill();
-    st.innerHTML = h.online ? `online · essentia ${UI.esc(h.info.essentia)} · structure ${h.info.structure && h.info.structure.available ? "yes" : "no"} · sonic ${h.info.sonic && h.info.sonic.available ? "yes" : "no"}` : `offline (${UI.esc(h.reason)})${h.reason === "unreachable" ? "<br>Start the backend: <span style='color:var(--text)'>npm run dev</span>" : ""}`;
+    st.innerHTML = h.online ? `online · essentia ${UI.esc(h.info.essentia || "n/a (portable engine)")} · structure ${h.info.structure && h.info.structure.available ? "yes" : "no"} · sonic ${h.info.sonic && h.info.sonic.available ? "yes (" + UI.esc(h.info.sonic.runtime || "?") + ")" : "no"}` : `offline (${UI.esc(h.reason)})${h.reason === "unreachable" ? "<br>Start the backend: <span style='color:var(--text)'>npm run dev</span>" : ""}`;
     return;
   }
   if (e.target.closest("#apiClear")) { try { localStorage.removeItem("ts_api_url"); } catch (er) {} document.getElementById("apiUrlInput").value = ""; document.getElementById("apiStatus").textContent = ""; refreshBackendPill(); return; }

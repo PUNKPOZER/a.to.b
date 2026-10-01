@@ -16,8 +16,6 @@ const exe = (n) => (win ? n + ".exe" : n);
 rmSync(out, { recursive: true, force: true });
 mkdirSync(join(out, "tools"), { recursive: true });
 
-if (win) { console.log("Windows build: the engine is not supported there, shipping the interface only"); process.exit(0); }
-
 // ffmpeg
 const require = createRequire(import.meta.url);
 const ff = require("ffmpeg-static");
@@ -39,7 +37,7 @@ copyFileSync(found, join(out, "tools", exe("uv"))); if (!win) chmodSync(join(out
 
 // backend + structure sources
 cpSync(join(root, "backend", "app"), join(out, "backend", "app"), { recursive: true, filter: (s) => !s.includes("__pycache__") });
-copyFileSync(join(root, "backend", "requirements.txt"), join(out, "backend", "requirements.txt"));
+for (const f of ["requirements.txt", "requirements-portable.txt"]) copyFileSync(join(root, "backend", f), join(out, "backend", f));
 mkdirSync(join(out, "structure"), { recursive: true });
 for (const f of ["run_allin1.py", "requirements.txt"]) copyFileSync(join(root, "structure", f), join(out, "structure", f));
 console.log("desktop resources ready ->", out);

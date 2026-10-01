@@ -170,7 +170,7 @@ def test_provider_pairwise_bridge_journey(tmp_path):
 
 @pytest.mark.skipif(not sonic_mod.available(), reason="essentia-tensorflow not installed")
 def test_embed_endpoint_real_model_and_cache(client):
-    body = wav_bytes(make_track(124.0, seconds=30))
+    body = wav_bytes(make_track(100.0 + float(np.random.rand()) * 30, seconds=30))  # unique audio -> never served from an older cache entry
     r = client.post("/api/embed", files={"file": ("t.wav", body, "audio/wav")})
     assert r.status_code == 200, r.text
     j = r.json()

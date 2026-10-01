@@ -89,11 +89,17 @@ function primaryMetrics(t) {
   return `<div class="metrics">
     ${UI.metric("BPM", t.bpm != null ? t.bpm.toFixed(1) : NA, rel + man("bpm"), `<div class="tag-edit"><button class="linkbtn" onclick="editBpmPrompt('${t.id}')">Edit</button></div>`)}
     ${UI.metric("Key", `<span class="keyline">${UI.camelotRing(t.key.camelot, 46)}<span>${UI.esc(t.key.camelot === "unknown" ? NA : t.key.camelot)}</span></span>`, UI.esc(keyName) + man("key"), `<div class="tag-edit"><button class="linkbtn" onclick="editCamelotPrompt('${t.id}')">Edit</button></div>`)}
-    ${UI.metric("Genre", `<span style="font-size:22px;letter-spacing:-.01em">${UI.esc(t.genre.primary)}</span>`, `${Math.round(t.genre.confidence)}% rule-based match`)}
+    ${UI.metric("Genre", `<span style="font-size:${t.genre.primary.length > 14 ? 18 : 22}px;letter-spacing:-.01em">${UI.esc(t.genre.primary)}</span>`, genreSub(t))}
     ${UI.metric("Energy", Math.round(t.profile.energy) + "<small>%</small>", "relative loudness")}
     ${UI.metric("Danceability", Math.round(t.profile.danceability) + "<small>%</small>", bk && bk.rhythm.danceability != null ? "Essentia " + bk.rhythm.danceability : "estimated")}
     ${UI.metric("Loudness", lufs, bk ? "EBU R128" : "needs backend")}
   </div>`;
+}
+function genreSub(t) {
+  const g = t.genre, mo = t.manualOverrides || {};
+  if (g.method === "discogs-effnet") return `${UI.esc(g.parent || "")} · ${g.confidence}% style activation${g.secondary && g.secondary[0] ? `<br><span class="faint">also ${UI.esc(g.secondary.slice(0, 2).map((x) => x[0]).join(", "))}</span>` : ""}`;
+  if (g.method === "manual") return `set manually <button class="linkbtn" onclick="editGenrePrompt('${t.id}')">Edit</button>`;
+  return `${Math.round(g.confidence)}% rule-based guess <span class="faint">· approximate, needs the backend for style detection</span>`;
 }
 function featureGrid(t) {
   const p = t.profile, an = t.analysis || {}, bk = an.backend && an.backend.status === "AVAILABLE" ? an.backend : null;

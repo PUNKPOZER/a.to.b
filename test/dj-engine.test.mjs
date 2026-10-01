@@ -60,3 +60,8 @@ test("buildSet: start track is respected and lengths scale 30 < 60", () => {
   const a = D.buildSet({ tracks: lib, targetMinutes: 30, startId: lib[5].id, seed: 2 }), b = D.buildSet({ tracks: lib, targetMinutes: 60, startId: lib[5].id, seed: 2 });
   assert.equal(a.ids[0], lib[5].id); assert.ok(b.ids.length > a.ids.length);
 });
+test("genre relationship uses style activations when both tracks have them", () => {
+  const a = { ...mk({ seed: 1 }), styles: { "Drum n Bass": 0.6, Halftime: 0.4 } }, b = { ...mk({ seed: 2 }), styles: { "Drum n Bass": 0.5, Jungle: 0.3 } }, c = { ...mk({ seed: 3 }), styles: { "Hardcore Hip-Hop": 0.6, "Boom Bap": 0.5 } };
+  assert.ok(D.genreScore(a, b) > 50); assert.equal(D.genreScore(a, c), 0);
+  assert.ok(D.djCompat(a, b).genre > D.djCompat(a, c).genre);
+});

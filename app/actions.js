@@ -13,7 +13,7 @@ async function editBpmPrompt(id) {
   t.manualOverrides.bpm = { value: Math.round(val * 10) / 10, setAt: Date.now() };
   t.bpm = t.manualOverrides.bpm.value; if (t.profile) t.profile.bpm = t.bpm;
   if (t.analysis) t.analysis.bpm = { ...(t.analysis.bpm || {}), value: t.bpm, reliability: 100 };
-  if (t.analysis && t.analysis.genreInputs && !t.manualOverrides.genre) { // genre follows the corrected tempo
+  if (t.analysis && t.analysis.genreInputs && !t.manualOverrides.genre && t.genre.method !== "discogs-effnet") { // genre follows the corrected tempo
     const gi = t.analysis.genreInputs;
     t.genre = classifyGenre(t.bpm, t.profile.rhythmicComplexity, gi.percussiveRatio, gi.bassEnergyNorm, gi.brightness, gi.vocalPresence);
   }
@@ -31,6 +31,15 @@ async function editCamelotPrompt(id) {
   t.key = { tonic, mode, camelot: code, confidence: 100 };
   if (t.analysis) t.analysis.key = { ...(t.analysis.key || {}), value: code, reliability: 100 };
   toast("Key set manually"); afterTrackEdit(id);
+}
+async function editGenrePrompt(id) {
+  const t = findTrack(id); if (!t) return;
+  const f = await openForm("Edit genre", [{ name: "genre", label: "Genre / style", value: t.genre.primary }], "Save");
+  if (!f || !f.genre.trim()) return;
+  t.manualOverrides = t.manualOverrides || {};
+  t.manualOverrides.genre = { value: f.genre.trim(), setAt: Date.now() };
+  t.genre = { ...t.genre, primary: f.genre.trim(), confidence: 100, method: "manual", secondary: [] };
+  toast("Genre set manually"); afterTrackEdit(id);
 }
 async function renameTrackPrompt(id) {
   const t = findTrack(id); if (!t) return;
@@ -81,7 +90,7 @@ function addToMenu(anchor, ids) {
 function trackMoreMenu(anchor, id) {
   openMenu(anchor, [
     { label: "Edit BPM", run: () => editBpmPrompt(id) }, { label: "Edit Camelot", run: () => editCamelotPrompt(id) },
-    { label: "Rename", run: () => renameTrackPrompt(id) }, { label: "Attach audio file…", run: () => attachAudioPicker(id) },
+    { label: "Edit genre", run: () => editGenrePrompt(id) }, { label: "Rename", run: () => renameTrackPrompt(id) }, { label: "Attach audio file…", run: () => attachAudioPicker(id) },
     { label: "Run advanced analysis", run: () => runAdvanced(id) }, { label: "Delete", run: () => deleteTrackPrompt(id) },
   ]);
 }

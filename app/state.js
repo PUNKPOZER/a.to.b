@@ -11,13 +11,18 @@ function trackToEngineShape(t) {
   const an = t.analysis || {}, st = an.structure && an.structure.status === "AVAILABLE" ? an.structure : null;
   const bk = an.backend && an.backend.status === "AVAILABLE" ? an.backend : null;
   return {
-    id: t.id, bpm: t.bpm, key: t.key, genre: t.genre, profile: t.profile, featureGroups: t.featureGroups,
+    id: t.id, bpm: t.bpm, key: t.key, genre: t.genre, styles: genreStyles(t), profile: t.profile, featureGroups: t.featureGroups,
     energyCurve: t.structure && t.structure.energyCurve ? t.structure.energyCurve : null,
     introBars: st ? st.introBars : null, outroBars: st ? st.outroBars : null, durationSec: t.durationSec,
     beatCv: bk && bk.bpm.beatIntervalCv != null ? bk.bpm.beatIntervalCv : null,
     backendDance: bk && bk.rhythm && bk.rhythm.danceability != null ? bk.rhythm.danceability : null,
     mfcc: bk && bk.timbre && bk.timbre.mfccMean ? bk.timbre.mfccMean : null,
   };
+}
+function genreStyles(t) {
+  const ts = t.analysis && t.analysis.sonic && t.analysis.sonic.status === "AVAILABLE" && t.analysis.sonic.topStyles;
+  if (!ts || ts.length < 3) return null;
+  const o = {}; ts.forEach((x) => (o[x.label] = x.score)); return o;
 }
 const computeSimilarity = (a, b, w = SIM_WEIGHTS, kw = KEY_WEIGHTS) => DjEngine.similarity(a, b, w, kw);
 const computeDjCompatibility = (a, b, w = DJ_WEIGHTS, kw = KEY_WEIGHTS, ctx) => DjEngine.djCompat(a, b, w, kw, ctx);

@@ -195,7 +195,7 @@ def _provider() -> sonic.LocalEmbeddingProvider:
 def _embed_summary(aid, vec, meta, extra=None):
     d = {"id": aid, "model": meta["model"], "modelVersion": meta["modelVersion"], "dims": int(len(vec)), "pooling": meta.get("pooling", sonic.POOLING),
          "createdAt": meta["createdAt"], "frameCount": meta.get("frameCount"), "frameHopSeconds": meta.get("frameHopSeconds"),
-         "topStyles": meta.get("topStyles", []), "license": "CC BY-NC-SA 4.0"}
+         "topStyles": meta.get("topStyles", []), "parents": meta.get("parents", []), "license": "CC BY-NC-SA 4.0"}
     d.update(extra or {})
     return d
 
@@ -228,7 +228,7 @@ async def embed_track(file: UploadFile = File(...)):
             audio = decode_mono(tmp, sonic.SAMPLE_RATE, sonic.MAX_SECONDS)
             r = sonic.embed(audio)
             meta = {"model": sonic.MODEL_ID, "modelVersion": sonic.MODEL_VERSION, "pooling": sonic.POOLING, "audioHash": aid,
-                    "frameCount": r["frameCount"], "frameHopSeconds": r["frameHopSeconds"], "topStyles": r["topStyles"],
+                    "frameCount": r["frameCount"], "frameHopSeconds": r["frameHopSeconds"], "topStyles": r["topStyles"], "parents": r["parents"],
                     "createdAt": int(time.time())}
             EMBEDDINGS.put("effnet", aid, r["vector"], meta, frames=r["frames"])
             return _embed_summary(aid, r["vector"], meta, {"cached": False, "elapsedSeconds": round(time.time() - t0, 1),

@@ -100,10 +100,15 @@ def embed(audio16k: np.ndarray) -> dict:
         raise ValueError("model returned no embedding frames (audio too short?)")
     mean = frames.mean(axis=0)
     p = preds.mean(axis=0)
-    top = np.argsort(-p)[:8]
+    top = np.argsort(-p)[:12]
+    parents: dict[str, float] = {}  # top-level Discogs genre = strongest of its styles
+    for i, sc in enumerate(p):
+        g = m["classes"][i].split("---")[0]
+        parents[g] = max(parents.get(g, 0.0), float(sc))
     return {"frames": frames, "vector": mean, "dims": int(mean.shape[0]), "frameCount": int(frames.shape[0]),
             "frameHopSeconds": round(float(m["hop_sec"]), 4),
-            "topStyles": [{"label": m["classes"][i], "score": round(float(p[i]), 4)} for i in top]}
+            "topStyles": [{"label": m["classes"][i], "score": round(float(p[i]), 4)} for i in top],
+            "parents": [{"label": g, "score": round(sc, 4)} for g, sc in sorted(parents.items(), key=lambda kv: -kv[1])[:4]]}
 
 
 def section_embedding(frames: np.ndarray, hop_sec: float, start: float, end: float) -> np.ndarray | None:

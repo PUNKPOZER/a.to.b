@@ -174,7 +174,7 @@ def test_embed_endpoint_real_model_and_cache(client):
     r = client.post("/api/embed", files={"file": ("t.wav", body, "audio/wav")})
     assert r.status_code == 200, r.text
     j = r.json()
-    assert j["dims"] == 1280 and j["pooling"] == "mean" and j["topStyles"] and isinstance(j["cached"], bool)
+    assert j["dims"] == 1280 and j["pooling"] == "mean" and j["topStyles"] and j["parents"] and isinstance(j["cached"], bool)
     assert client.post("/api/embed", files={"file": ("t.wav", body, "audio/wav")}).json()["cached"] is True
     pw = client.post("/api/sonic/pairwise", json={"ids": [j["id"]]}).json()
     assert pw["ids"] == [j["id"]] and abs(pw["raw"][0][0] - 1.0) < 1e-3

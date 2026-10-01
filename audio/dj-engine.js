@@ -94,6 +94,15 @@
     return w ? r1(s / w) : null;
   }
 
+  // genre relationship: Discogs style activations when both tracks have them, else the legacy genre vectors
+  function genreScore(a, b) {
+    if (a.styles && b.styles) {
+      const ks = new Set([...Object.keys(a.styles), ...Object.keys(b.styles)]);
+      if (ks.size) { const x = [...ks].map((k) => a.styles[k] || 0), y = [...ks].map((k) => b.styles[k] || 0); const d = Math.hypot(...x) * Math.hypot(...y); if (d > 1e-9) return r1(clamp(dot(x, y) / d * 100)); }
+    }
+    return cosine100(a.featureGroups.genre, b.featureGroups.genre);
+  }
+
   /* ---------------- Similarity v2 (feature-based; embedding handled by SonicSimilarity) ---------------- */
   function similarity(a, b, weights = SIM_WEIGHTS, keyW = KEY_WEIGHTS) {
     const g = (k) => cosine100(a.featureGroups[k], b.featureGroups[k]);
@@ -107,7 +116,7 @@
     const eCos = g("energy"), eClose = clamp(100 - Math.abs(a.profile.energy - b.profile.energy) * 1.4);
     const parts = {
       tempo: tempoScore(a.bpm, b.bpm),
-      genre: g("genre"),
+      genre: genreScore(a, b),
       rhythm: rhythm.length ? r1(rhythm.reduce((s, v) => s + v, 0) / rhythm.length) : null,
       timbre: (() => { const v = [texture, bass, mfccSim].filter((x) => x != null); return v.length ? r1(v.reduce((s, x) => s + x, 0) / v.length) : null; })(),
       harmony: chroma != null ? r1(0.55 * chroma + 0.15 * (melody ?? chroma) + 0.30 * camel) : r1(camel),
@@ -152,7 +161,7 @@
       groove: grooveScore(a, b),
       energy: energyProgressionScore(a, b, ctx.targetDelta),
       structure: structureScore(a, b),
-      genre: cosine100(a.featureGroups.genre, b.featureGroups.genre),
+      genre: genreScore(a, b),
     };
     const overall = weighted(parts, weights);
     return { overall, ...parts, transition: parts.energy, notes: explain(a, b, parts) };
@@ -249,5 +258,5 @@
   }
 
   return { SIM_WEIGHTS, DJ_WEIGHTS, KEY_WEIGHTS, BUILD_WEIGHTS, CURVES, bpmRelation, tempoScore, camelotDistance, keyScore,
-           similarity, djCompat, explain, overlapSeconds, overlapBars, curveAt, buildSet, cosine100, curveSimilarity };
+           similarity, djCompat, genreScore, explain, overlapSeconds, overlapBars, curveAt, buildSet, cosine100, curveSimilarity };
 });

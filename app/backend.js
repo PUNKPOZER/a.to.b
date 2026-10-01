@@ -55,9 +55,21 @@ async function runSonicStage(t, file, health) {
   if (!r.ok) { an.sonic = { status: r.unavailable ? "UNAVAILABLE" : "ERROR", reason: r.reason }; return; }
   const e = r.result;
   an.sonic = { status: "AVAILABLE", audioId: e.id, model: e.model, modelVersion: e.modelVersion, dims: e.dims, pooling: e.pooling,
-               frameCount: e.frameCount, createdAt: e.createdAt, license: e.license, topStyles: (e.topStyles || []).slice(0, 5) };
+               frameCount: e.frameCount, createdAt: e.createdAt, license: e.license, topStyles: (e.topStyles || []).slice(0, 8), parents: (e.parents || []).slice(0, 3) };
+  applyGenreFromSonic(t);
   an.version = Math.max(an.version || 2, 5);
   invalidateSonic();
+}
+/* Genre from Discogs-EffNet style activations (a model trained for music-style classification) replaces the rule-based
+   baseline, unless the user set the genre by hand. The old guess is kept in analysis.genreLegacy. */
+function styleName(label) { return label.split("---").pop(); }
+function applyGenreFromSonic(t) {
+  const s = t.analysis && t.analysis.sonic, mo = t.manualOverrides || {};
+  if (!s || s.status !== "AVAILABLE" || !s.topStyles || !s.topStyles.length || mo.genre) return;
+  const [a, ...rest] = s.topStyles;
+  if (t.genre && t.genre.method !== "discogs-effnet") t.analysis.genreLegacy = { primary: t.genre.primary, confidence: t.genre.confidence, method: t.genre.method };
+  t.genre = { primary: styleName(a.label), parent: a.label.split("---")[0], confidence: Math.round(a.score * 100), method: "discogs-effnet",
+              secondary: rest.slice(0, 4).map((x) => [styleName(x.label), Math.round(x.score * 100)]) };
 }
 async function runSonicOnly(id) {
   const t = findTrack(id); if (!t || !t.analysis) return;
@@ -118,7 +130,7 @@ function applyBackendResult(t, res) {
     t.bpm = f.value; t.profile.bpm = f.value;
     an.bpm = { value: f.value, reliability: f.reliability, candidates: cands, modelConfidence: b.modelConfidence ?? null, backendReliability: b.reliability, disagreeing: f.disagreeing };
     an.sources = Array.from(new Set(f.sources)); // only the sources that agree with the final value
-    if (an.genreInputs && !mo.genre) {
+    if (an.genreInputs && !mo.genre && !(t.genre && t.genre.method === "discogs-effnet")) {
       const gi = an.genreInputs;
       t.genre = classifyGenre(t.bpm, t.profile.rhythmicComplexity, gi.percussiveRatio, gi.bassEnergyNorm, gi.brightness, gi.vocalPresence);
     }

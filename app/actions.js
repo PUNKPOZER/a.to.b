@@ -13,7 +13,8 @@ async function editBpmPrompt(id) {
   t.manualOverrides.bpm = { value: Math.round(val * 10) / 10, setAt: Date.now() };
   t.bpm = t.manualOverrides.bpm.value; if (t.profile) t.profile.bpm = t.bpm;
   if (t.analysis) t.analysis.bpm = { ...(t.analysis.bpm || {}), value: t.bpm, reliability: 100 };
-  if (t.analysis && t.analysis.genreInputs && !t.manualOverrides.genre && t.genre.method !== "discogs-effnet") { // genre follows the corrected tempo
+  if (t.genre.method === "discogs-effnet") { /* style genre does not depend on tempo */ }
+  else if (t.analysis && t.analysis.genreInputs && !t.manualOverrides.genre) { // genre follows the corrected tempo
     const gi = t.analysis.genreInputs;
     t.genre = classifyGenre(t.bpm, t.profile.rhythmicComplexity, gi.percussiveRatio, gi.bassEnergyNorm, gi.brightness, gi.vocalPresence);
   }

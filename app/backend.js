@@ -66,10 +66,11 @@ function styleName(label) { return label.split("---").pop(); }
 function applyGenreFromSonic(t) {
   const s = t.analysis && t.analysis.sonic, mo = t.manualOverrides || {};
   if (!s || s.status !== "AVAILABLE" || !s.topStyles || !s.topStyles.length || mo.genre) return;
-  const [a, ...rest] = s.topStyles;
+  const ranked = window.GenreRank ? GenreRank.rerank(s.topStyles) : s.topStyles.map((x, i) => ({ ...x, rank: i }));
+  const [a, ...rest] = ranked;
   if (t.genre && t.genre.method !== "discogs-effnet") t.analysis.genreLegacy = { primary: t.genre.primary, confidence: t.genre.confidence, method: t.genre.method };
   t.genre = { primary: styleName(a.label), parent: a.label.split("---")[0], confidence: Math.round(a.score * 100), method: "discogs-effnet",
-              secondary: rest.slice(0, 4).map((x) => [styleName(x.label), Math.round(x.score * 100)]) };
+              tempoAdjusted: a.rank !== 0, secondary: rest.slice(0, 4).map((x) => [styleName(x.label), Math.round(x.score * 100)]) };
 }
 async function runSonicOnly(id) {
   const t = findTrack(id); if (!t || !t.analysis) return;
@@ -130,7 +131,8 @@ function applyBackendResult(t, res) {
     t.bpm = f.value; t.profile.bpm = f.value;
     an.bpm = { value: f.value, reliability: f.reliability, candidates: cands, modelConfidence: b.modelConfidence ?? null, backendReliability: b.reliability, disagreeing: f.disagreeing };
     an.sources = Array.from(new Set(f.sources)); // only the sources that agree with the final value
-    if (an.genreInputs && !mo.genre && !(t.genre && t.genre.method === "discogs-effnet")) {
+    if (t.genre && t.genre.method === "discogs-effnet") { /* style genre does not depend on tempo */ }
+    else if (an.genreInputs && !mo.genre) {
       const gi = an.genreInputs;
       t.genre = classifyGenre(t.bpm, t.profile.rhythmicComplexity, gi.percussiveRatio, gi.bassEnergyNorm, gi.brightness, gi.vocalPresence);
     }

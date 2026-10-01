@@ -28,13 +28,9 @@ warnings.filterwarnings("ignore")
 
 MODEL_ID = "discogs-effnet-bs64"
 MODEL_VERSION = "1"
-BASE_URL = "https://essentia.upf.edu/models/feature-extractors/discogs-effnet/"
-FILES = {  # runtime -> {file: sha256}; the class list (400 Discogs styles) is identical in both json files
-    "essentia-tensorflow": {"discogs-effnet-bs64-1.pb": "3ed9af50d5367c0b9c795b294b00e7599e4943244f4cbd376869f3bfc87721b1",
-                            "discogs-effnet-bs64-1.json": "a35003202384735c33154e20264267f9941705218a7b93202b655a1d408d4ff6"},
-    "onnxruntime": {"discogs-effnet-bsdynamic-1.onnx": "a280825b334797cf677939db8cd5762c0392aedd0ca6415dbc1cd083f045e43c",
-                    "discogs-effnet-bsdynamic-1.json": "a2e85b2e7372d5f8e0f35bdd6aeae1139f101087d183d0b2fb60b0ea0f01a0ff"},
-}
+_CFG = json.loads(Path(__file__).with_name("model_files.json").read_text())
+BASE_URLS = _CFG["baseUrls"]   # tried in order: the MTG server, then our GitHub release mirror (same files, same sha256)
+FILES = _CFG["files"]          # runtime -> {file: sha256}; the class list (400 Discogs styles) is identical in both json files
 MODEL_DIR = Path(os.getenv("SELECTOR_MODEL_DIR", Path(__file__).resolve().parents[1] / "models"))
 SAMPLE_RATE = 16000
 POOLING = "mean"
@@ -81,11 +77,19 @@ def ensure_model(rt: str | None = None) -> Path:
         if p.exists() and _sha(p) == want:
             continue
         tmp = p.with_suffix(p.suffix + ".part")
-        urllib.request.urlretrieve(BASE_URL + name, tmp)
-        if _sha(tmp) != want:
-            tmp.unlink(missing_ok=True)
-            raise RuntimeError(f"checksum mismatch for {name}")
-        tmp.replace(p)
+        errors = []
+        for base in BASE_URLS:
+            try:
+                urllib.request.urlretrieve(base + name, tmp)
+                if _sha(tmp) != want:
+                    raise RuntimeError("checksum mismatch")
+                tmp.replace(p)
+                break
+            except Exception as e:  # noqa: BLE001 - try the next mirror
+                tmp.unlink(missing_ok=True)
+                errors.append(f"{base}: {e}")
+        else:
+            raise RuntimeError(f"could not download {name}: " + " | ".join(errors))
     return MODEL_DIR / next(n for n in files if not n.endswith(".json"))
 
 

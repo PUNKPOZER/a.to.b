@@ -3,7 +3,8 @@
  * and install the backend's dependencies (Essentia + TensorFlow, and on Apple Silicon the All-In-One structure
  * analyzer), pre-downloads the Discogs-EffNet model, then runs the FastAPI server on 127.0.0.1:8000.
  * Nothing here is bundled in the installer except uv, ffmpeg and the Python sources. */
-const { app } = require("electron");
+const { app, net } = require("electron");
+const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -33,10 +34,11 @@ const isReady = () => { const s = readState(); return !!(s && s.version === ENGI
 function run(cmd, args, { cwd, env, onLine }) {
   return new Promise((resolve, reject) => {
     const c = spawn(cmd, args, { cwd, env: { ...process.env, ...env }, windowsHide: true });
-    const feed = (b) => String(b).split(/\r?\n/).forEach((l) => l.trim() && onLine && onLine(l.trim()));
+    const tail = [];
+    const feed = (b) => String(b).split(/\r?\n/).forEach((l) => { if (!l.trim()) return; tail.push(l.trim()); if (tail.length > 4) tail.shift(); onLine && onLine(l.trim()); });
     c.stdout.on("data", feed); c.stderr.on("data", feed);
     c.on("error", reject);
-    c.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`${path.basename(cmd)} exited with code ${code}`))));
+    c.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`${path.basename(cmd)} exited with code ${code}: ${tail.slice(-2).join(" / ")}`))));
   });
 }
 
@@ -51,7 +53,7 @@ async function setup(emit) {
     }],
     ["Installing Python 3.12", () => run(p.uv, ["venv", "--python", "3.12", "--clear", p.venv], { env: uvEnv(), onLine: (l) => emit({ line: l }) })],
     [FULL ? "Installing analysis libraries (Essentia, TensorFlow) — a few minutes" : "Installing analysis libraries (ONNX Runtime)", () => run(p.uv, ["pip", "install", "--python", p.py, "-r", path.join(p.backend, FULL ? "requirements.txt" : "requirements-portable.txt")], { env: uvEnv(), onLine: (l) => emit({ line: l }) })],
-    ["Downloading the Discogs-EffNet model", () => run(p.py, ["-c", "from app import sonic; print(sonic.ensure_model())"], { cwd: p.backend, env: { SELECTOR_MODEL_DIR: p.models }, onLine: (l) => emit({ line: l }) })],
+    ["Downloading the Discogs-EffNet model", () => downloadModel(emit)],
   ];
   if (FULL) steps.push(
     ["Installing structure analysis (All-In-One) — a few minutes", async () => {
@@ -69,6 +71,32 @@ async function setup(emit) {
   try { fs.rmSync(path.join(home(), "uv-cache"), { recursive: true, force: true }); } catch {} // downloaded wheels are no longer needed
   fs.writeFileSync(p.state, JSON.stringify({ version: ENGINE_VERSION, structure: FULL && fs.existsSync(p.spy), full: FULL, completedAt: Date.now() }));
   emit({ state: "done", step: total, total, label: "Ready" });
+}
+// Model files are fetched here, with Chromium's network stack: it uses the Windows/macOS certificate store and the system
+// proxy and fetches missing intermediate certificates, which Python's urllib does not (that is what broke the first
+// Windows setup: "unable to get local issuer certificate"). Mirrors and checksums come from backend/app/model_files.json.
+async function downloadModel(emit) {
+  const cfg = JSON.parse(fs.readFileSync(path.join(P().backend, "app", "model_files.json"), "utf8"));
+  const files = cfg.files[FULL ? "essentia-tensorflow" : "onnxruntime"];
+  fs.mkdirSync(P().models, { recursive: true });
+  for (const [name, sha] of Object.entries(files)) {
+    const dest = path.join(P().models, name);
+    const ok = () => fs.existsSync(dest) && crypto.createHash("sha256").update(fs.readFileSync(dest)).digest("hex") === sha;
+    if (ok()) { emit({ line: name + " already present" }); continue; }
+    const errors = [];
+    for (const base of cfg.baseUrls) {
+      try {
+        emit({ line: "Downloading " + base + name });
+        const r = await net.fetch(base + name);
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        fs.writeFileSync(dest + ".part", Buffer.from(await r.arrayBuffer()));
+        fs.renameSync(dest + ".part", dest);
+        if (!ok()) { fs.unlinkSync(dest); throw new Error("checksum mismatch"); }
+        break;
+      } catch (e) { errors.push(`${base}: ${e.message}`); emit({ line: "failed: " + e.message }); }
+    }
+    if (!ok()) throw new Error(`could not download ${name} — ${errors.join(" | ")}`);
+  }
 }
 const uvEnv = () => ({ UV_PYTHON_INSTALL_DIR: path.join(home(), "python"), UV_CACHE_DIR: path.join(home(), "uv-cache"), UV_NO_PROGRESS: "1" });
 
@@ -102,4 +130,4 @@ async function start(origin) {
 const stop = () => { if (proc) proc.kill(); };
 const reset = () => { try { fs.unlinkSync(P().state); } catch {} };
 
-module.exports = { setup, start, stop, reset, isReady, supported, healthy, paths: P, ENGINE_VERSION };
+module.exports = { downloadModel, setup, start, stop, reset, isReady, supported, healthy, paths: P, ENGINE_VERSION };

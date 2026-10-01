@@ -195,3 +195,6 @@ Developer mode: running from a checkout that has `backend/.venv` uses that backe
 
 ### Portable engine (any OS)
 `backend/requirements-portable.txt` + `SELECTOR_PORTABLE=1` run the API without Essentia (health reports `analysis.available: false`; `/api/analyze` returns 503; the app skips that stage and continues with sonic / genre). `app/sonic.py` picks the runtime automatically: `essentia-tensorflow` when installed, otherwise `onnxruntime` (`discogs-effnet-bsdynamic-1.onnx`, sha256-pinned, downloaded once). The ONNX path is also much faster (about 1 s for a 4-minute track on an M-series CPU vs ~7 s through TensorFlow).
+
+### Model download (desktop first launch)
+The desktop app downloads the Discogs-EffNet files itself, through Chromium's network stack (system certificates and proxy), verifies the SHA-256 from `backend/app/model_files.json` and tries two sources in order: the MTG server (`essentia.upf.edu`) and a GitHub mirror (release `models-v1`, unmodified files, CC BY-NC-SA 4.0). This fixed a Windows failure where Python's own HTTPS client rejected the MTG server's certificate chain ("unable to get local issuer certificate").

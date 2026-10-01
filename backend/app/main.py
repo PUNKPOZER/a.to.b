@@ -1,4 +1,4 @@
-"""SELECTOR advanced-analysis API (FastAPI + Essentia).
+"""NOESIS advanced-analysis API (FastAPI + Essentia).
 
 GET  /api/health            -> liveness + engine versions
 POST /api/analyze           -> multipart `file`; returns normalised analysis JSON
@@ -38,7 +38,7 @@ _struct_pool = ThreadPoolExecutor(max_workers=1)  # All-In-One / EffNet are RAM 
 ORIGINS = ["http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:8000",
            "https://punkpozer.github.io"] + [o for o in os.getenv("SELECTOR_CORS_ORIGINS", "").split(",") if o]
 
-app = FastAPI(title="SELECTOR analysis API", version="0.1.0")
+app = FastAPI(title="NOESIS analysis API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_methods=["GET", "POST"], allow_headers=["*"])
 _pool = ThreadPoolExecutor(max_workers=int(os.getenv("SELECTOR_WORKERS", "1")))  # CPU-bound: serialize by default
 

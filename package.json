@@ -1,8 +1,8 @@
 {
-  "name": "selector-dj",
+  "name": "noesis",
   "version": "0.2.0",
   "private": true,
-  "description": "SELECTOR DJ — DJ selection assistant (static site, runs on GitHub Pages)",
+  "description": "NOESIS — DJ tools for deeper selection (by punk pozer) (static site, runs on GitHub Pages)",
   "scripts": {
     "vendor": "node scripts/vendor-essentia.mjs",
     "start": "node scripts/serve.mjs",

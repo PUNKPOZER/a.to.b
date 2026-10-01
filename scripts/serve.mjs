@@ -15,4 +15,4 @@ createServer(async (req, res) => {
     const body = await readFile(join(root, p));
     res.writeHead(200, { "Content-Type": types[extname(p)] || "application/octet-stream" }).end(body);
   } catch { res.writeHead(404).end("not found"); }
-}).listen(port, () => console.log(`SELECTOR dev server: http://localhost:${port}/`));
+}).listen(port, () => console.log(`NOESIS dev server: http://localhost:${port}/`));

@@ -1,6 +1,6 @@
 /* Analysis fusion: reconciles the legacy DSP estimates with Essentia.js.
  * Pure functions, no DOM — loadable in the browser (window.AnalysisFusion)
- * and in Node for tests. Reliability numbers here are SELECTOR's own
+ * and in Node for tests. Reliability numbers here are NOESIS's own
  * agreement measure between independent methods, not a model confidence;
  * the raw Essentia confidence/strength is kept separately (modelConfidence).
  * The exact formulas are documented next to each function. */

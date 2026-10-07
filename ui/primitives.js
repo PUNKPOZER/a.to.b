@@ -35,6 +35,9 @@ const UI = (() => {
     return `<svg class="art ${cls}" viewBox="0 0 48 48" role="img" aria-label="${esc(t("track.noCover"))}"><rect width="48" height="48" fill="#131313"/><circle cx="${14 + r(20)}" cy="${14 + r(20)}" r="${6 + r(10)}" fill="none" stroke="#f4f4f2" stroke-opacity=".3"/>${g}</svg>`;
   }
 
+  // Camelot key as a colour-coded badge (the wheel position is the hue, so neighbouring keys look related)
+  const keyColor = (code) => { const m = /^(\d{1,2})([AB])$/.exec(code || ""); if (!m) return null; const h = ((+m[1] - 1) * 30 + 200) % 360; return m[2] === "A" ? `hsl(${h} 62% 70%)` : `hsl(${h} 78% 62%)`; };
+  const keyBadge = (code) => { const c = keyColor(code); return c ? `<span class="kb" style="background:${c}">${esc(code)}</span>` : `<span class="kb none">${NA}</span>`; };
   const tone = (v) => (v == null ? "none" : v >= 80 ? "good" : v >= 55 ? "mid" : "bad");
   const pct = (v) => (v == null ? NA : Math.round(v) + "%");
   const score = (kind, v) => `<span class="scoretag" title="${esc(t(kind === "sonic" ? "score.sonic" : "score.dj"))}"><b class="${tone(v)} num">${pct(v)}</b><span>${esc(t(kind === "sonic" ? "score.sonicShort" : "score.djShort"))}</span></span>`;
@@ -78,5 +81,5 @@ const UI = (() => {
   const metric = (k, v, s = "", e = "", cls = "") => `<div class="metric ${cls}"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div>${e ? `<div class="e">${e}</div>` : ""}</div>`;
   const empty = (titleKey, textKey, actionHtml = "") => `<div class="empty"><b>${esc(t(titleKey))}</b>${esc(t(textKey))}${actionHtml ? `<div style="margin-top:12px">${actionHtml}</div>` : ""}</div>`;
 
-  return { esc, NA, icon, logo, swirl, mark, art, tone, pct, score, badge, stages, statusWord, camelotRing, sparkline, bar, barTone, help, seg, sectionHead, metric, empty };
+  return { keyBadge, keyColor, esc, NA, icon, logo, swirl, mark, art, tone, pct, score, badge, stages, statusWord, camelotRing, sparkline, bar, barTone, help, seg, sectionHead, metric, empty };
 })();

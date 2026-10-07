@@ -12,10 +12,11 @@ function posText(p) {
   if (p.section) parts.push(secLabel(p.section));
   return parts.join(" · ");
 }
-function openTransitionGuide(aId, bId) {
+function openTransitionGuide(aId, bId, autoplay) {
   const A = findTrack(aId), B = findTrack(bId); if (!A || !B) return;
-  guideState = { a: aId, b: bId };
-  const dlg = openModal("", "xwide"); renderGuide(dlg);
+  stopTransition();
+  const dlg = openModal("", "xwide"); guideState = { a: aId, b: bId }; renderGuide(dlg);
+  if (autoplay) playTransition();
 }
 function renderGuide(dlg) {
   dlg = dlg || document.querySelector("#modalRoot .dialog"); if (!dlg || !guideState) return;
@@ -32,18 +33,27 @@ function renderGuide(dlg) {
       <span class="badge ${g.confidence.level}" data-tip="${UI.esc(g.confidence.reasons.map((r) => t("gconf." + r.k)).join(" · ") || t("gconf.ok"))}">${t("guide.confidence")}: ${t("conf." + g.confidence.level)}</span>
       ${g.estimated ? `<span class="badge medium" data-tip="${UI.esc(t("guide.estimatedTip"))}">${t("guide.estimated")}</span>` : ""}${g.manual ? `<span class="badge">${t("common.manual")}</span>` : ""}
       <span class="mono dim">${t("guide.tempoDiff", { n: g.tempoDiffPct })} · ${A.key.camelot} → ${B.key.camelot}</span></div>
-    <div class="guide-wave"><div class="gl"><span class="mono dim">A · ${UI.esc(A.title)}</span><span class="mono">${t("guide.mixOut")} ${posText(g.mixOut)}</span></div><canvas id="gwA" data-side="a" aria-label="${UI.esc(t("guide.waveA"))}"></canvas></div>
-    <div class="guide-wave"><div class="gl"><span class="mono dim">B · ${UI.esc(B.title)}</span><span class="mono">${t("guide.mixIn")} ${posText(g.mixIn)}</span></div><canvas id="gwB" data-side="b" aria-label="${UI.esc(t("guide.waveB"))}"></canvas></div>
+    <div class="gsummary"><span class="label">${t("guide.summaryTitle")}</span> <b>${UI.esc(A.title)}</b> <span class="dim">${UI.esc(sectionLine(g.mixOut))}</span> <span class="dim">→</span> <b>${UI.esc(B.title)}</b> <span class="dim">${UI.esc(sectionLine(g.mixIn))}</span></div>
+    <div class="toolbar" style="margin-bottom:12px"><button class="btn primary" id="gPlay">${UI.icon(guideAudio.playing ? "pause" : "play")}${t(guideAudio.playing ? "guide.stop" : "guide.play")}</button><span class="mono faint" id="gPlayNote">${UI.esc(guideAudio.note || t("guide.playHint"))}</span></div>
+    <div class="guide-wave"><div class="gl"><span class="mono dim">A · ${UI.esc(A.title)}</span><span class="mono">${t("guide.mixOut")} ${posText(g.mixOut)}</span></div><canvas id="gwA" data-side="a" aria-label="${UI.esc(t("guide.waveA"))}"></canvas><i class="ghead" id="ghA"></i></div>
+    <div class="guide-wave"><div class="gl"><span class="mono dim">B · ${UI.esc(B.title)}</span><span class="mono">${t("guide.mixIn")} ${posText(g.mixIn)}</span></div><canvas id="gwB" data-side="b" aria-label="${UI.esc(t("guide.waveB"))}"></canvas><i class="ghead" id="ghB"></i></div>
     <div class="mono faint" style="text-align:center;margin-bottom:12px">${t("guide.dragHint")}</div>
     <div class="gcols"><div class="gcol"><div class="label">${t("guide.mixOut")}</div><div class="t">${fmtTime(g.mixOut.time)}</div><div class="dim" style="font-size:12px;margin-top:4px">${posText(g.mixOut)}</div>
         <div class="toolbar" style="margin-top:10px"><button class="btn sm" data-gplay="a">${UI.icon("play")}${t("guide.playFrom")}</button></div></div>
       <div class="gcol"><div class="label">${t("guide.mixIn")}</div><div class="t">${fmtTime(g.mixIn.time)}</div><div class="dim" style="font-size:12px;margin-top:4px">${posText(g.mixIn)}</div>
         <div class="toolbar" style="margin-top:10px"><button class="btn sm" data-gplay="b">${UI.icon("play")}${t("guide.playFrom")}</button></div></div></div>
+    <div class="gwhere"><div><span class="label">${t("guide.whereOut")}</span><div class="chips">${whereChips(A, g.mixOut, "gout")}</div></div><div><span class="label">${t("guide.whereIn")}</span><div class="chips">${whereChips(B, g.mixIn, "gin")}</div></div></div>
     <div class="toolbar" style="margin-bottom:12px"><span class="label">${t("guide.length")}</span>${UI.seg(Transition.LENGTHS.slice().reverse().map((n) => [n, n + " " + t("unit.bars")]), g.bars, "data-gbars")}<span class="mono dim">${g.bars ? "≈ " + g.seconds + " s" : t("guide.cut")}</span>
       ${g.manual ? `<button class="btn sm" id="guideReset">${t("guide.resetAuto")}</button>` : ""}</div>
     ${UI.sectionHead(t("guide.type") + ": " + t("ttype." + g.type.key), "")}<ul class="why">${reasonList(g.type.reasons, "twhy")}<li class="none">${UI.esc(t("mixout." + g.mixOutWhy))}</li></ul>
     ${compatBlock(d)}`;
   requestAnimationFrame(() => drawGuide(A, B, g));
+}
+const sectionLine = (p) => (p ? [p.section ? secLabel(p.section) : null, p.bar ? t("guide.bar", { n: p.bar }) : null, fmtTime(p.time)].filter(Boolean).join(" · ") : UI.NA);
+// every labelled section of the track is a place to mix out of / into; the current choice is highlighted
+function whereChips(tr, cur, attr) {
+  const st = structureOf(tr); if (!st) return `<span class="faint">${t("guide.noSections")}</span>`;
+  return st.segments.map((sg, i) => `<button class="chip ${cur && cur.section === sg.label && cur.time >= sg.start - 0.05 && cur.time < sg.end ? "on" : ""}" data-${attr}="${i}"><i style="background:${SEC_COLORS()[sg.label] || "#888"}"></i>${UI.esc(secLabel(sg.label))} <span class="mono">${fmtTime(sg.start)}</span></button>`).join("");
 }
 function compatBlock(d) {
   return `${UI.sectionHead(t("guide.compat"), UI.score("dj", d.overall) + " " + confidenceBadge(d.confidence))}${djBreakdown(d)}<ul class="why">${d.notes.map((n) => `<li class="${n.level}">${UI.esc(noteText(n))}</li>`).join("")}</ul>`;
@@ -101,4 +111,63 @@ document.addEventListener("click", (e) => {
   if (e.target.closest("#guideReset")) { delete state.currentSet.manualMix[guideState.a + "|" + guideState.b]; persistCurrentSet(); renderGuide(); if (state.tab === "setbuilder") renderActiveView(); return; }
   const pl = e.target.closest("[data-gplay]"); if (pl) { const side = pl.dataset.gplay, id = side === "a" ? guideState.a : guideState.b, tr = findTrack(id), g = transitionOf(findTrack(guideState.a), findTrack(guideState.b)).guide;
     const barSec = Transition.barSec(trackToEngineShape(tr)); seekTo(id, Math.max(0, (side === "a" ? g.mixOut.time : g.mixIn.time) - 8 * barSec)); }
+});
+
+/* ---- listen to the transition: A plays up to the mix-out point, then B comes in over the overlap (Web Audio) ---- */
+const guideAudio = { ctx: null, cache: new Map(), nodes: [], raf: 0, playing: false, note: "" };
+async function decodeForGuide(id) {
+  if (guideAudio.cache.has(id)) return guideAudio.cache.get(id);
+  const blob = await getAudioBlob(id); if (!blob) return null;
+  const buf = await guideAudio.ctx.decodeAudioData(await blob.arrayBuffer());
+  guideAudio.cache.set(id, buf); if (guideAudio.cache.size > 4) guideAudio.cache.delete(guideAudio.cache.keys().next().value);
+  return buf;
+}
+function stopTransition() {
+  guideAudio.nodes.forEach((n) => { try { n.stop(); } catch (e) {} try { n.disconnect(); } catch (e) {} });
+  guideAudio.nodes = []; cancelAnimationFrame(guideAudio.raf); guideAudio.playing = false;
+  ["ghA", "ghB"].forEach((id) => { const h = document.getElementById(id); if (h) h.style.display = "none"; });
+  const b = document.getElementById("gPlay"); if (b) b.innerHTML = UI.icon("play") + t("guide.play");
+}
+async function playTransition() {
+  if (guideAudio.playing) { stopTransition(); return; }
+  if (!guideState) return;
+  const A = findTrack(guideState.a), B = findTrack(guideState.b), g = transitionOf(A, B).guide; if (!g || !g.available) return;
+  if (player.audio && !player.audio.paused) player.audio.pause();
+  guideAudio.ctx = guideAudio.ctx || new (window.AudioContext || window.webkitAudioContext)(); await guideAudio.ctx.resume();
+  const note = document.getElementById("gPlayNote"); if (note) note.textContent = t("guide.loading");
+  const [bufA, bufB] = await Promise.all([decodeForGuide(A.id), decodeForGuide(B.id)]);
+  if (!bufA || !bufB) { toast(t("toast.noAudio")); if (note) note.textContent = ""; return; }
+  const ctx = guideAudio.ctx, SA = trackToEngineShape(A), SB = trackToEngineShape(B), barA = Transition.barSec(SA), barB = Transition.barSec(SB);
+  let ratio = SA.bpm / SB.bpm; if (ratio > 1.6) ratio /= 2; else if (ratio < 0.62) ratio *= 2;   // half / double-time pairs
+  const rate = Math.max(0.9, Math.min(1.1, ratio)), L = g.bars ? g.bars * barA : 0.25;
+  const start = Math.max(0, g.mixOut.time - 8 * barA), pre = g.mixOut.time - start, post = Math.max(8, 8 * barB / rate);
+  const t0 = ctx.currentTime + 0.12, mid = t0 + pre + L / 2, end = t0 + pre + L + post;
+  const mk = (buf, when, offset, r) => { const s = ctx.createBufferSource(); s.buffer = buf; s.playbackRate.value = r; const lo = ctx.createBiquadFilter(); lo.type = "lowshelf"; lo.frequency.value = 220; const gn = ctx.createGain(); s.connect(lo); lo.connect(gn); gn.connect(ctx.destination); s.start(when, offset); guideAudio.nodes.push(s); return { s, lo, gn }; };
+  const a = mk(bufA, t0, start, 1), b = mk(bufB, t0 + pre, g.mixIn.time, rate);
+  const steps = 24, curve = (f) => Float32Array.from({ length: steps }, (_, i) => f(i / (steps - 1)));
+  a.gn.gain.setValueAtTime(1, t0); a.gn.gain.setValueAtTime(1, t0 + pre); a.gn.gain.setValueCurveAtTime(curve((x) => Math.cos(x * Math.PI / 2)), t0 + pre, L);
+  b.gn.gain.setValueAtTime(0, t0); b.gn.gain.setValueAtTime(0, t0 + pre); b.gn.gain.setValueCurveAtTime(curve((x) => Math.sin(x * Math.PI / 2)), t0 + pre, L);
+  if (g.type.key === "bass_swap") { a.lo.gain.setValueAtTime(0, mid - 0.05); a.lo.gain.linearRampToValueAtTime(-30, mid + 0.05); b.lo.gain.setValueAtTime(-30, t0); b.lo.gain.setValueAtTime(-30, mid - 0.05); b.lo.gain.linearRampToValueAtTime(0, mid + 0.05); }
+  a.s.stop(t0 + pre + L + 0.05); b.s.stop(end);
+  guideAudio.playing = true; guideAudio.note = t("guide.playingNote", { a: Math.abs(Math.round((rate - 1) * 1000) / 10) || 0, n: Math.round(pre + L + post) });
+  const btn = document.getElementById("gPlay"); if (btn) btn.innerHTML = UI.icon("pause") + t("guide.stop"); if (note) note.textContent = guideAudio.note;
+  const place = (id, canvasId, tt) => { const h = document.getElementById(id), c = document.getElementById(canvasId); if (!h || !c || !c._win) return; const w = c._win.win, f = (tt - w.t0) / (w.t1 - w.t0); h.style.display = f >= 0 && f <= 1 ? "block" : "none"; h.style.left = c.offsetLeft + f * c.clientWidth + "px"; h.style.top = c.offsetTop + "px"; h.style.height = c.clientHeight + "px"; };
+  const tick = () => {
+    const e = ctx.currentTime - t0;
+    if (e >= pre + L + post + 0.1 || !guideAudio.playing) { stopTransition(); return; }
+    place("ghA", "gwA", e < pre + L ? start + Math.max(0, e) : -1e9); place("ghB", "gwB", e >= pre ? g.mixIn.time + (e - pre) * rate : -1e9);
+    guideAudio.raf = requestAnimationFrame(tick);
+  };
+  guideAudio.raf = requestAnimationFrame(tick);
+}
+document.addEventListener("click", (e) => {
+  if (!guideState || !e.target.closest("#modalRoot")) return;
+  if (e.target.closest("#gPlay")) { playTransition(); return; }
+  const go = e.target.closest("[data-gout]"), gi = e.target.closest("[data-gin]");
+  if (go || gi) {
+    const A = findTrack(guideState.a), B = findTrack(guideState.b), tr = go ? A : B, st = structureOf(tr), seg = st && st.segments[+(go || gi).dataset[go ? "gout" : "gin"]]; if (!seg) return;
+    const S = trackToEngineShape(tr), tt = S.downbeats[Grid.nearest(S.downbeats, seg.start)];
+    const key = guideState.a + "|" + guideState.b, m = (state.currentSet.manualMix[key] = state.currentSet.manualMix[key] || {}); m[go ? "mixOutTime" : "mixInTime"] = tt;
+    stopTransition(); persistCurrentSet(); renderGuide(); if (state.tab === "setbuilder") renderActiveView();
+  }
 });

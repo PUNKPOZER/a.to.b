@@ -190,7 +190,7 @@ function openModal(innerHtml, cls = "wide") {
 }
 function closeModal(silent) {
   document.getElementById("modalRoot").innerHTML = "";
-  if (!silent) { try { guideState = null; } catch (e) {} }
+  if (!silent) { try { stopTransition(); guideState = null; } catch (e) {} }
   if (_modalOff) { _modalOff(); _modalOff = null; }
   if (!silent && _modalOpener && _modalOpener.isConnected) { try { _modalOpener.focus({ preventScroll: true }); } catch (e) {} }
 }

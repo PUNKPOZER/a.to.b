@@ -82,7 +82,7 @@ function renderSetBuilderView(root) {
       <div class="curvebox"><div style="display:flex;justify-content:space-between;margin-bottom:6px;gap:12px;flex-wrap:wrap"><span class="label">${t("sb.energyLegend")}</span><span class="mono faint">${t("sb.dragPoints")}</span></div>${curveSvg(tracks)}</div>
       ${tracks.length ? setStatsHtml(tracks, analysis) : ""}</section>
     <section class="panel"><div class="panel-head"><h2>${t("sb.sequence")}</h2><span class="mono faint" id="sbNote" aria-live="polite">${UI.esc(sbNote)}</span></div>
-      ${tracks.length ? `<div class="seq" id="seq" role="list" aria-label="${UI.esc(t("sb.sequence"))}">${tracks.map((x, i) => nodeHtml(x, i, tracks) + (i < tracks.length - 1 ? linkHtml(x, tracks[i + 1], trans[i], i) : "")).join("")}</div>` : `<div class="empty"><b>${t("sb.emptyTitle")}</b>${t("sb.emptyText")}</div>`}</section></div></div>`;
+      ${tracks.length ? `${seqHeader()}<div class="seq" id="seq" role="list" aria-label="${UI.esc(t("sb.sequence"))}">${tracks.map((x, i) => nodeHtml(x, i, tracks) + (i < tracks.length - 1 ? linkHtml(x, tracks[i + 1], trans[i], i) : "")).join("")}</div>` : `<div class="empty"><b>${t("sb.emptyTitle")}</b>${t("sb.emptyText")}</div>`}</section></div></div>`;
   sbNote = "";
 }
 function setStatsHtml(tracks, an) {
@@ -103,25 +103,30 @@ function nodeHtml(tr, i, tracks) {
   const { role, manual } = roleOf(tr, i, tracks), lk = isLocked(tr.id), playing = player.id === tr.id && !player.audio.paused;
   return `<div class="node ${lk ? "locked" : ""}" role="listitem" data-idx="${i}" data-id="${tr.id}">
     <button class="handle" data-handle="${i}" aria-label="${UI.esc(t("sb.dragHandle", { name: tr.title }))}" data-tip="${UI.esc(t("sb.dragTip"))}">${UI.icon("grip")}</button>
-    <span class="idx">${String(i + 1).padStart(2, "0")}</span>
-    <span class="artplay">${UI.art(tr, "xs")}<button class="ov ${playing ? "on" : ""}" data-simplay="${tr.id}" aria-label="${UI.esc(t("player.play"))}">${UI.icon("play")}</button></span>
-    <div class="nm" data-open-track="${tr.id}" style="cursor:pointer"><div class="t1">${UI.esc(tr.title)}</div><div class="t2">${UI.esc(dispArtist(tr))}</div></div>
-    <div class="st"><span><b class="num">${tr.bpm.toFixed(1)}</b> BPM</span><span><b>${UI.esc(tr.key.camelot === "unknown" ? UI.NA : tr.key.camelot)}</b></span><span><b class="num">${Math.round(tr.profile.energy)}</b> ${t("chip.energy")}</span><span>${fmtTime(tr.durationSec)}</span>
-      ${role ? `<button class="role" data-role="${tr.id}" style="${manual ? "color:var(--text);border-color:var(--border-strong)" : "opacity:.7"}" data-tip="${UI.esc(t(manual ? "sb.roleManual" : "sb.roleAuto"))}">${t("role." + role)}</button>` : ""}</div>
+    <span class="idx">${i + 1}</span>
+    <div class="who"><span class="artplay">${UI.art(tr, "xs")}<button class="ov ${playing ? "on" : ""}" data-simplay="${tr.id}" aria-label="${UI.esc(t("player.play"))}">${UI.icon("play")}</button></span>
+      <div class="nm" data-open-track="${tr.id}" style="cursor:pointer"><div class="t1">${UI.esc(tr.title)}</div><div class="t2">${UI.esc(dispArtist(tr))}</div></div></div>
+    <span class="c num">${tr.bpm.toFixed(0)}</span><span class="c">${UI.keyBadge(tr.key.camelot)}</span><span class="c num">${Math.round(tr.profile.energy)}</span><span class="c num dim">${fmtTime(tr.durationSec)}</span>
+    <span class="c rolecell">${role ? `<button class="role" data-role="${tr.id}" style="${manual ? "color:var(--text);border-color:var(--border-strong)" : "opacity:.7"}" data-tip="${UI.esc(t(manual ? "sb.roleManual" : "sb.roleAuto"))}">${t("role." + role)}</button>` : ""}</span>
     <div class="tools"><button class="iconbtn ${lk ? "on" : ""}" data-lock="${tr.id}" aria-pressed="${lk}" aria-label="${UI.esc(t(lk ? "sb.unlock" : "sb.lock"))}" data-tip="${UI.esc(t(lk ? "sb.unlock" : "sb.lockTip"))}">${UI.icon(lk ? "lock" : "unlock")}</button>
       <button class="iconbtn" data-alt="${i}" aria-label="${UI.esc(t("sb.findAlt"))}" data-tip="${UI.esc(t("sb.findAlt"))}">${UI.icon("swap")}</button>
       <button class="iconbtn" data-nodemore="${i}" aria-label="${UI.esc(t("common.more"))}">${UI.icon("more")}</button></div></div>`;
 }
+function seqHeader() { return `<div class="seqhead"><span></span><span>#</span><span>${t("col.track")}</span><span class="c">BPM</span><span class="c">${t("col.key")}</span><span class="c">${t("chip.energy")}</span><span class="c">${t("sb.time")}</span><span class="c rolecell">${t("sb.role")}</span><span></span></div>`; }
+// the transition between two tracks: where to mix out of A, where to come in on B, how long, what kind — and a button to listen to it
 function linkHtml(a, b, tr, i) {
-  const key = a.id + "|" + b.id, open = expandedLinks.has(key), d = tr.compat, g = tr.guide;
-  const guideBtn = g && g.available
-    ? `<button class="tbtn" data-guide="${key}" aria-label="${UI.esc(t("guide.open"))}"><span class="big">${g.bars ? g.bars + " " + t("unit.bars") : t("guide.cut")}</span><span class="sm">${UI.esc(t("ttype." + g.type.key))}</span><span class="badge ${g.difficulty.key}">${t("diff." + g.difficulty.key)}</span>${g.estimated ? `<span class="badge medium" data-tip="${UI.esc(t("guide.estimatedTip"))}">${t("guide.estimated")}</span>` : ""}${g.manual ? `<span class="badge">${t("common.manual")}</span>` : ""}</button>`
-    : `<span class="mono faint" data-tip="${UI.esc(t("guide.noGridTip"))}">${t("guide.noGrid")}</span>`;
-  return `<div class="tblock"><div></div><div class="rail"></div><div class="body">
-    ${guideBtn}
+  const key = a.id + "|" + b.id, open = expandedLinks.has(key), d = tr.compat, g = tr.guide, sec = (p) => (p && p.section ? secLabel(p.section) : null);
+  const main = g && g.available
+    ? `<button class="tpill ${g.difficulty.key}" data-guide="${key}" aria-label="${UI.esc(t("guide.open"))}">
+        <span class="ti">${UI.icon("swap")}</span><span class="tmain"><b>${UI.esc(t("ttype." + g.type.key))}</b><span>${g.bars ? g.bars + " " + t("unit.bars") : t("guide.cut")} · ${t("diff." + g.difficulty.key)}</span></span>
+        <span class="tpos"><span><i>${t("guide.mixOut")}</i> ${fmtTime(g.mixOut.time)}${sec(g.mixOut) ? " · " + UI.esc(sec(g.mixOut)) : ""}</span><span><i>${t("guide.mixIn")}</i> ${fmtTime(g.mixIn.time)}${sec(g.mixIn) ? " · " + UI.esc(sec(g.mixIn)) : ""}</span></span></button>
+      <button class="btn sm" data-guide="${key}" data-autoplay="1">${UI.icon("play")}${t("sb.listen")}</button>
+      ${g.estimated ? `<span class="badge medium" data-tip="${UI.esc(t("guide.estimatedTip"))}">${t("guide.estimated")}</span>` : ""}${g.manual ? `<span class="badge">${t("common.manual")}</span>` : ""}`
+    : `<span class="tpill none" data-tip="${UI.esc(t("guide.noGridTip"))}"><span class="ti">${UI.icon("swap")}</span><span class="tmain"><b>${t("sb.transition")}</b><span>${t("guide.noGrid")}</span></span></span>`;
+  return `<div class="tblock"><div></div><div class="rail"></div><div class="body">${main}
     <button class="sc scoretag" data-toggle-link="${key}" aria-expanded="${open}" style="background:none;border:none;color:inherit"><b class="${UI.tone(d.overall)} num">${UI.pct(d.overall)}</b><span>${t("score.djShort")}</span></button>
     ${confidenceBadge(d.confidence)}
-    <span class="mono dim">${UI.esc(a.key.camelot)} → ${UI.esc(b.key.camelot)} · ${a.bpm.toFixed(0)} → ${b.bpm.toFixed(0)} BPM</span>
+    <span class="mono dim">${a.bpm.toFixed(0)} → ${b.bpm.toFixed(0)} BPM</span>${UI.keyBadge(a.key.camelot)}<span class="dim">→</span>${UI.keyBadge(b.key.camelot)}
     <button class="linkbtn" data-bridge="${i}">${t("sb.findBridge")}</button>
     ${open ? `<div style="flex-basis:100%">${djBreakdown(d)}<ul class="why">${d.notes.map((n) => `<li class="${n.level}">${UI.esc(noteText(n))}</li>`).join("")}</ul></div>` : ""}</div></div>`;
 }
@@ -295,7 +300,6 @@ document.addEventListener("click", async (e) => {
   if (e.target.closest("#sbReroll")) { buildSetNow(true); return; }
   if (e.target.closest("#sbOptimize")) { optimizeNow(); return; }
   const tg = e.target.closest("[data-toggle-link]"); if (tg) { const k = tg.dataset.toggleLink; expandedLinks.has(k) ? expandedLinks.delete(k) : expandedLinks.add(k); renderActiveView(); return; }
-  const gd = e.target.closest("[data-guide]"); if (gd) { const [a, b] = gd.dataset.guide.split("|"); openTransitionGuide(a, b); return; }
   const lk = e.target.closest("[data-lock]"); if (lk) { const id = lk.dataset.lock; cur().locked = isLocked(id) ? cur().locked.filter((x) => x !== id) : [...cur().locked, id]; saveSet(); renderActiveView(); return; }
   const alt = e.target.closest("[data-alt]"); if (alt) { showAlternatives(+alt.dataset.alt); return; }
   const br = e.target.closest("[data-bridge]"); if (br) { showFindBridge(+br.dataset.bridge); return; }

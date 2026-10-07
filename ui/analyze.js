@@ -31,7 +31,7 @@ const simBasisTip = (r) => {
   const cov = r.sonic ? null : r.sim.coverage;
   return [t(r.sonic ? "sim.basisSonic" : "sim.basisFeature"), lines.join(" · "), cov != null && cov < 0.85 ? t("sim.partial", { n: Math.round(cov * 100) }) : ""].filter(Boolean).join(" — ");
 };
-function mchips(tr) { return `<div class="mchips"><span>${tr.bpm.toFixed(0)} BPM</span><span>${UI.esc(tr.key.camelot === "unknown" ? NA : tr.key.camelot)}</span><span>${UI.esc(tr.genre.primary)}</span><span>${Math.round(tr.profile.energy)} ${t("chip.energy")}</span></div>`; }
+function mchips(tr) { return `<div class="mchips"><span>${tr.bpm.toFixed(0)} BPM</span><span style="background:${UI.keyColor(tr.key.camelot) || "transparent"};color:${UI.keyColor(tr.key.camelot) ? "#0a0a0a" : "inherit"};border-color:transparent;font-weight:700">${UI.esc(tr.key.camelot === "unknown" ? NA : tr.key.camelot)}</span><span>${UI.esc(tr.genre.primary)}</span><span>${Math.round(tr.profile.energy)} ${t("chip.energy")}</span></div>`; }
 function similarRowHtml(r) {
   const tr = r.track, why = r.reasons.length ? `<div class="mchips why">${r.reasons.map((x) => `<span>${UI.esc(t("why.sim." + x.key))}</span>`).join("")}</div>` : "";
   const playing = player.id === tr.id && !player.audio.paused;
@@ -112,7 +112,7 @@ function primaryMetrics(tr) {
   const edit = (fn) => `<button type="button" onclick="${fn}('${tr.id}')">${t("common.edit")}</button>`;
   return `<div class="metrics">
     ${UI.metric("BPM", tr.bpm != null ? tr.bpm.toFixed(1) : NA, rel + manChip(tr, "bpm"), edit("editBpmPrompt"))}
-    ${UI.metric(t("metric.key"), `${UI.camelotRing(tr.key.camelot, 30)}<span>${UI.esc(tr.key.camelot === "unknown" ? NA : tr.key.camelot)}</span>`, UI.esc(keyName) + manChip(tr, "key"), edit("editCamelotPrompt"))}
+    ${UI.metric(t("metric.key"), `${UI.camelotRing(tr.key.camelot, 30)}${UI.keyBadge(tr.key.camelot)}`, UI.esc(keyName) + manChip(tr, "key"), edit("editCamelotPrompt"))}
     ${UI.metric(t("metric.genre"), `<span class="txt" style="font-size:16px;white-space:normal">${UI.esc(tr.genre.primary)}</span>`, genreSub(tr), tr.genre.method === "manual" ? edit("editGenrePrompt") : "", "wide")}
     ${UI.metric(t("metric.energy"), Math.round(tr.profile.energy) + "<small>%</small>", t("metric.energySub"))}
     ${UI.metric(t("metric.danceability"), Math.round(tr.profile.danceability) + "<small>%</small>", bk && bk.rhythm.danceability != null ? t("metric.danceEss", { n: bk.rhythm.danceability }) : t("metric.estimated"))}
@@ -250,7 +250,7 @@ document.addEventListener("click", (e) => {
   const ws = e.target.closest("[data-wstyle]"); if (ws) { state.waveStyle = ws.dataset.wstyle; persistUi(); renderActiveView(); return; }
   if (e.target.closest("#trackMore")) { trackMoreMenu(e.target.closest("#trackMore"), state.currentTrackId); return; }
   const sg = e.target.closest("[data-stage]"); if (sg && state.currentTrackId) { runStageOnly(state.currentTrackId, sg.dataset.stage); return; }
-  const gd = e.target.closest("[data-guide]"); if (gd) { const [a, b] = gd.dataset.guide.split("|"); openTransitionGuide(a, b); return; }
+  const gd = e.target.closest("[data-guide]"); if (gd) { const [a, b] = gd.dataset.guide.split("|"); openTransitionGuide(a, b, !!gd.dataset.autoplay); return; }
   const as = e.target.closest("[data-addset]"); if (as) { e.stopPropagation(); addToSet(as.dataset.addset); return; }
   const op = e.target.closest("[data-open-track]");
   if (op && !e.target.closest("button, canvas, input, a")) openTrack(op.dataset.openTrack);

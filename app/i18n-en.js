@@ -159,4 +159,7 @@ const I18N_EN = {
   "help.expcues": "Adds a memory cue at each mix-out and mix-in point, named after the neighbouring track.",
   "help.expgrid": "Writes the measured beat grid. Only tracks with an analyzed grid get one; estimated grids are never exported.",
   "help.expbase": "Rekordbox needs the full path of each file. The browser only knows names, so enter the folder you imported the music from.",
+  "guide.summaryTitle": "Mix point", "guide.play": "Listen to the transition", "guide.stop": "Stop", "guide.playHint": "Plays A up to the mix-out, then B comes in over the overlap.", "guide.loading": "loading audio…", "guide.playingNote": "B is matched to A's tempo (Δ{a}%). About {n} s.",
+  "guide.whereOut": "Mix out of A at", "guide.whereIn": "Mix into B at", "guide.noSections": "no section labels — run structure analysis",
+  "sb.listen": "Listen", "sb.transition": "Transition", "sb.time": "Time", "sb.role": "Role",
 };

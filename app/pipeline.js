@@ -1,44 +1,42 @@
 /* =================== upload + analysis =================== */
-const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 const folderInput = document.getElementById("folderInput");
 const SUPPORTED_EXT = /\.(mp3|wav|aiff?|flac|m4a)$/i;
 
-dropzone.addEventListener("click", e => { if (!e.target.closest("button")) fileInput.click(); });
-dropzone.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); } });
-document.getElementById("pickFilesBtn").addEventListener("click", () => fileInput.click());
-document.getElementById("pickFolderBtn").addEventListener("click", () => folderInput.click());
-["dragenter","dragover"].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add("dragover"); }));
-["dragleave"].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove("dragover"); }));
-
-dropzone.addEventListener("drop", async e => {
-  e.preventDefault();
-  dropzone.classList.remove("dragover");
-  const items = e.dataTransfer.items;
-  let files = [];
+// Import works from anywhere in the app: drop files/folders on the window, or use the buttons / the import panel
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-pick-folder]")) { folderInput.click(); return; }
+  if (e.target.closest("[data-pick-files]")) { fileInput.click(); return; }
+  const dz = e.target.closest("#dropzone"); if (dz && !e.target.closest("button")) fileInput.click();
+});
+document.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.id === "dropzone") { e.preventDefault(); fileInput.click(); } });
+let _dragDepth = 0;
+const hasFiles = (e) => e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files");
+window.addEventListener("dragenter", (e) => { if (hasFiles(e)) { e.preventDefault(); _dragDepth++; document.body.classList.add("dragging"); } });
+window.addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
+window.addEventListener("dragleave", (e) => { if (hasFiles(e) && --_dragDepth <= 0) { _dragDepth = 0; document.body.classList.remove("dragging"); } });
+window.addEventListener("drop", async (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); _dragDepth = 0; document.body.classList.remove("dragging");
+  const items = e.dataTransfer.items; let files = [];
   if (items && items.length && items[0].webkitGetAsEntry) {
-    // Folder-aware drop: walk any dropped directories recursively.
-    const entries = Array.from(items).map(it => it.webkitGetAsEntry()).filter(Boolean);
-    files = (await Promise.all(entries.map(walkEntry))).flat();
-  } else {
-    files = Array.from(e.dataTransfer.files);
-  }
-  files = files.filter(f => SUPPORTED_EXT.test(f.name));
-  if (files.length) handleFiles(files);
+    const entries = Array.from(items).map((it) => it.webkitGetAsEntry()).filter(Boolean);
+    files = (await Promise.all(entries.map((en) => walkEntry(en, "")))).flat();
+  } else files = Array.from(e.dataTransfer.files);
+  files = files.filter((f) => SUPPORTED_EXT.test(f.name));
+  if (files.length) handleFiles(files); else toast(t("import.noSupported"));
 });
 
-function walkEntry(entry) {
-  return new Promise(resolve => {
-    if (entry.isFile) {
-      entry.file(file => resolve([file]), () => resolve([]));
-    } else if (entry.isDirectory) {
-      const reader = entry.createReader();
-      const all = [];
-      const readBatch = () => reader.readEntries(async batch => {
+// folder-aware walk; remembers each file's path relative to the dropped folder (used by the exporters)
+function walkEntry(entry, prefix) {
+  return new Promise((resolve) => {
+    if (entry.isFile) entry.file((file) => { try { Object.defineProperty(file, "_rel", { value: (prefix + file.name) }); } catch (e) {} resolve([file]); }, () => resolve([]));
+    else if (entry.isDirectory) {
+      const reader = entry.createReader(), all = [];
+      const readBatch = () => reader.readEntries(async (batch) => {
         if (!batch.length) { resolve(all); return; }
-        const nested = await Promise.all(batch.map(walkEntry));
-        nested.forEach(arr => all.push(...arr));
-        readBatch(); // directory readers can require several calls to drain fully
+        const nested = await Promise.all(batch.map((b) => walkEntry(b, prefix + entry.name + "/")));
+        nested.forEach((arr) => all.push(...arr)); readBatch();
       }, () => resolve(all));
       readBatch();
     } else resolve([]);
@@ -46,31 +44,38 @@ function walkEntry(entry) {
 }
 
 fileInput.addEventListener("change", () => {
-  const files = Array.from(fileInput.files).filter(f => SUPPORTED_EXT.test(f.name));
-  if (files.length) handleFiles(files);
+  const files = Array.from(fileInput.files).filter((f) => SUPPORTED_EXT.test(f.name));
+  if (files.length) handleFiles(files); else toast(t("import.noSupported"));
   fileInput.value = "";
 });
 folderInput.addEventListener("change", () => {
-  const files = Array.from(folderInput.files).filter(f => SUPPORTED_EXT.test(f.name));
-  if (files.length) handleFiles(files); else toast("В папке не найдено поддерживаемых аудиофайлов");
+  const files = Array.from(folderInput.files).filter((f) => SUPPORTED_EXT.test(f.name));
+  if (files.length) handleFiles(files); else toast(t("import.noSupportedFolder"));
   folderInput.value = "";
 });
+// absolute path (desktop app only) and path relative to the chosen folder (browser)
+function fileLocation(file) {
+  let abs = null; try { abs = (window.atobDesktop && window.atobDesktop.pathForFile(file)) || file.path || null; } catch (e) {}
+  const rel = file.webkitRelativePath || file._rel || null;
+  return { path: abs || null, relPath: rel };
+}
 
 function tick(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 /* progress: a thin line + step words (no spinners) */
+const STEP_COUNT_UI = 10;
 function renderProgress(stepIndex, errorMsg) {
   const box = document.getElementById("analyzeProgress");
   box.classList.remove("hidden");
-  if (errorMsg) { box.innerHTML = `<div class="status"><span class="s fail"><i class="dot"></i>Analysis failed — ${escapeHtml(errorMsg)}</span></div>`; return; }
-  const pct = Math.round(((stepIndex + 1) / ANALYSIS_STEPS.length) * 100);
-  box.innerHTML = `<div class="status" role="status"><span class="s run"><i class="dot"></i>${ANALYSIS_STEPS[Math.min(stepIndex, ANALYSIS_STEPS.length - 1)]}</span><span class="mono faint">${stepIndex + 1}/${ANALYSIS_STEPS.length}</span></div><div class="progressline"><i style="width:${pct}%"></i></div>`;
+  if (errorMsg) { box.innerHTML = `<div class="status"><span class="s fail"><i class="dot off"></i>${escapeHtml(t("import.failed", { err: errorMsg }))}</span></div>`; return; }
+  const pct = Math.round(((stepIndex + 1) / STEP_COUNT_UI) * 100), i = Math.min(stepIndex, STEP_COUNT_UI - 1);
+  box.innerHTML = `<div class="status" role="status"><span class="s run"><i class="dot run"></i>${escapeHtml(t("step." + i))}</span><span class="mono faint">${stepIndex + 1}/${STEP_COUNT_UI}</span></div><div class="progressline"><i style="width:${pct}%"></i></div>`;
 }
 function renderBatchProgress(done, total, filename) {
   const box = document.getElementById("analyzeProgress");
   box.classList.remove("hidden");
   const pct = Math.round((done / total) * 100);
-  box.innerHTML = `<div class="status" role="status"><span class="s run"><i class="dot"></i>Analyzing ${done}/${total}${filename ? " — " + escapeHtml(filename) : ""}</span></div><div class="progressline"><i style="width:${pct}%"></i></div>`;
+  box.innerHTML = `<div class="status" role="status"><span class="s run"><i class="dot run"></i>${escapeHtml(t("import.batch", { done, total }))}${filename ? " — " + escapeHtml(filename) : ""}</span></div><div class="progressline"><i style="width:${pct}%"></i></div>`;
 }
 
 // Embedded tags (ID3v2): artist / title / cover thumbnail. Missing tags simply stay null.
@@ -86,8 +91,8 @@ async function thumbFromPicture(pic) {
 async function readTags(arrayBuffer) {
   try {
     const t = Id3.parse(new Uint8Array(arrayBuffer, 0, Math.min(arrayBuffer.byteLength, 6_000_000)));
-    return { title: t.title, artist: t.artist, cover: t.picture ? await thumbFromPicture(t.picture) : null };
-  } catch (e) { return { title: null, artist: null, cover: null }; }
+    return { title: t.title, artist: t.artist, album: t.album || null, cover: t.picture ? await thumbFromPicture(t.picture) : null };
+  } catch (e) { return { title: null, artist: null, album: null, cover: null }; }
 }
 
 async function simpleHash(arrayBuffer) {
@@ -103,9 +108,10 @@ async function simpleHash(arrayBuffer) {
 async function analyzeAndStoreFile(file, progressCb) {
   const arrayBuffer = await file.arrayBuffer();
   const hash = await simpleHash(arrayBuffer);
-  const existing = state.library.find(t => t.hash === hash);
+  const existing = state.library.find(x => x.hash === hash);
   if (existing) {
     // same file dropped again: upgrade an older track (no audio / waveform / advanced analysis yet)
+    const loc = fileLocation(file); if (!existing.path && loc.path) existing.path = loc.path; if (!existing.relPath && loc.relPath) existing.relPath = loc.relPath; persistLibrary();
     upgradeTrackAudio(existing, file).catch(e => console.warn("upgrade failed", e));
     return { track: existing, duplicate: true };
   }
@@ -132,8 +138,9 @@ async function analyzeAndStoreFile(file, progressCb) {
     const id = "t_" + Math.random().toString(36).slice(2,10);
     const tags = await readTags(arrayBuffer);
     const track = {
-      id, hash, filename: file.name, artist: tags.artist || "Unknown artist",
-      title: tags.title || file.name.replace(/\.[^.]+$/, ""), cover: tags.cover || null,
+      id, hash, filename: file.name, artist: tags.artist || UNKNOWN_ARTIST,
+      title: tags.title || file.name.replace(/\.[^.]+$/, ""), cover: tags.cover || null, ...fileLocation(file), sizeBytes: file.size, album: tags.album || null,
+      analysisVersion: ANALYSIS_VERSION,
       format: (file.name.match(/\.([a-z0-9]+)$/i) || [])[1]?.toUpperCase() || "", sampleRate: audioBuffer.sampleRate,
       durationSec: audioBuffer.duration, analyzedSeconds: result.analyzedSeconds, truncated: result.truncated,
       bpm: result.bpm, key: result.key, genre: result.genre, profile: result.profile,
@@ -157,7 +164,6 @@ async function handleFiles(files) {
   if (state.tab !== "analyze") setActiveTab("analyze");
 
   if (files.length === 1) {
-    // single file: show the step readout
     renderProgress(0);
     await tick(50);
     try {
@@ -165,7 +171,7 @@ async function handleFiles(files) {
       renderProgress(9); await tick(80);
       document.getElementById("analyzeProgress").classList.add("hidden");
       onTrackReady(track.id);
-      toast(duplicate ? "Already in library: " + track.title : "Analyzed: " + track.title);
+      toast(duplicate ? t("import.already", { name: track.title }) : t("import.done", { name: track.title }));
     } catch (err) {
       console.error(err);
       renderProgress(0, err.message || String(err));
@@ -181,7 +187,6 @@ async function handleFiles(files) {
       const { track, duplicate } = await analyzeAndStoreFile(files[i]);
       lastTrackId = track.id;
       duplicate ? dupCount++ : okCount++;
-      renderFilterTags();
     } catch (err) {
       console.error("Failed to analyze", files[i].name, err);
       errCount++;
@@ -191,9 +196,9 @@ async function handleFiles(files) {
   renderBatchProgress(files.length, files.length);
   await tick(150);
   document.getElementById("analyzeProgress").classList.add("hidden");
-  const parts = [`Analyzed: ${okCount}`];
-  if (dupCount) parts.push(`already there: ${dupCount}`);
-  if (errCount) parts.push(`failed: ${errCount}`);
+  const parts = [t("import.summaryOk", { n: okCount })];
+  if (dupCount) parts.push(t("import.summaryDup", { n: dupCount }));
+  if (errCount) parts.push(t("import.summaryFail", { n: errCount }));
   toast(parts.join(" · "));
   if (lastTrackId) onTrackReady(lastTrackId);
 }
@@ -202,9 +207,7 @@ function onTrackReady(id) {
   state.currentTrackId = id;
   state.libRef = id;
   state.trackTab = "overview";
-  renderFilterTags();
   if (state.tab !== "analyze") setActiveTab("analyze"); else renderActiveView();
 }
 // every track click in the app opens the track page in Analyze
 function openTrack(id, tab) { if (tab) state.trackTab = tab; state.currentTrackId = id; state.libRef = id; if (state.tab !== "analyze") setActiveTab("analyze"); else renderActiveView(); }
-const showTrackDetail = (id) => openTrack(id);

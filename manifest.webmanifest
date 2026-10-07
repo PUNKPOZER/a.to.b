@@ -1,0 +1,15 @@
+{
+  "name": "a.to.b",
+  "short_name": "a.to.b",
+  "description": "DJ selection, set building and transition planning. Local-first.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#060606",
+  "theme_color": "#060606",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

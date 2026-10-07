@@ -1,4 +1,4 @@
-# Builds the NOESIS desktop installers (macOS .dmg, Windows .exe) with Electron.
+# Builds the a.to.b desktop installers (macOS .dmg, Windows .exe) with Electron.
 # Run manually (Actions -> Desktop installers -> Run workflow) to get the files as build artifacts, or push a tag
 # like v0.3.0 to also attach them to a GitHub Release.
 name: Desktop installers
@@ -35,7 +35,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"   # unsigned builds (see README: first-launch warnings)
       - uses: actions/upload-artifact@v4
         with:
-          name: noesis-${{ matrix.os }}
+          name: atob-${{ matrix.os }}
           path: ${{ matrix.glob }}
       - if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2

@@ -53,7 +53,7 @@ function renderAnalyzeView() {
 function trackHeaderHtml(t) {
   const playing = player.id === t.id && !player.audio.paused;
   return `<div class="thead">${UI.art(t)}<div style="min-width:0">
-    <div class="artist">${UI.esc(t.artist)}</div><div class="title">${UI.esc(t.title)}</div>
+    <div class="artist">${UI.esc(dispArtist(t))}</div><div class="title">${UI.esc(t.title)}</div>
     <div class="meta"><span class="mono">${UI.esc(trackMetaLine(t))}</span>${t.truncated ? `<span class="mono faint">analysed first ${Math.round(t.analyzedSeconds)} s locally</span>` : ""}</div>
     <div style="margin-top:10px">${UI.statusDots(t)}</div></div>
     <div class="actions"><button class="playbtn" data-trackplay="${t.id}" aria-label="${playing ? "Pause" : "Play"}">${UI.icon(playing ? "pause" : "play")}</button>
@@ -200,7 +200,7 @@ function tabDj(t) {
   if (!rows.length) return `<div class="empty" style="padding-left:0">Add more tracks to see what mixes well with this one.</div>`;
   const bar = (l, v) => v == null ? `<div><div class="l"><span>${l}</span><span>${NA}</span></div>${UI.bar(0)}</div>` : `<div><div class="l"><span>${l}</span><span class="num">${Math.round(v)}</span></div>${UI.bar(v, `var(--${v >= 80 ? "green" : v >= 55 ? "amber" : "coral"})`)}</div>`;
   return `${UI.sectionHead("Mixes well with", "DJ compatibility from tempo, key, rhythm, groove, energy, structure, genre")}` + rows.map((r) => `<div style="padding:var(--s4) 0;border-top:1px solid var(--line)">
-    <div style="display:flex;gap:var(--s4);align-items:center">${UI.art(r.o, "sm")}<div style="flex:1;min-width:0;cursor:pointer" data-open-track="${r.o.id}"><div class="dim" style="font-size:11px">${UI.esc(r.o.artist)}</div><div>${UI.esc(r.o.title)}</div></div>
+    <div style="display:flex;gap:var(--s4);align-items:center">${UI.art(r.o, "sm")}<div style="flex:1;min-width:0;cursor:pointer" data-open-track="${r.o.id}"><div class="dim" style="font-size:11px">${UI.esc(dispArtist(r.o))}</div><div>${UI.esc(r.o.title)}</div></div>
       ${UI.score("dj", r.dj.overall)}${r.sonic ? UI.score("sonic", r.sonic.overall) : ""}<button class="btn sm" data-addset="${r.o.id}">+ Set</button></div>
     <div class="tbreak">${bar("Tempo", r.dj.tempo)}${bar("Camelot", r.dj.key)}${bar("Rhythm", r.dj.rhythm)}${bar("Structure", r.dj.structure)}${bar("Energy", r.dj.energy)}</div>
     <ul class="notes">${r.dj.notes.map((n) => `<li class="${n.level}">${UI.esc(n.text)}</li>`).join("")}</ul></div>`).join("");

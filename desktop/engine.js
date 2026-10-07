@@ -1,4 +1,4 @@
-/* NOESIS analysis engine manager (desktop app).
+/* a.to.b analysis engine manager (desktop app).
  * First launch: copies the bundled backend sources to the user-data folder, lets the bundled `uv` fetch Python 3.12
  * and install the backend's dependencies (Essentia + TensorFlow, and on Apple Silicon the All-In-One structure
  * analyzer), pre-downloads the Discogs-EffNet model, then runs the FastAPI server on 127.0.0.1:8000.

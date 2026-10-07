@@ -8,9 +8,9 @@
  *     beatCv|null, mfcc:[..]|null, backendDance|null }
  */
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory();
-  else root.DjEngine = factory();
-})(typeof self !== "undefined" ? self : this, function () {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./calibration.js"));
+  else root.DjEngine = factory(root.DjCalibration);
+})(typeof self !== "undefined" ? self : this, function (CAL) {
   /* ---------------- configuration layer ---------------- */
   const SIM_WEIGHTS = { rhythm: 0.25, timbre: 0.20, harmony: 0.15, energy: 0.15, structure: 0.10, tempo: 0.10, genre: 0.05 };
   const DJ_WEIGHTS = { tempo: 0.22, key: 0.20, rhythm: 0.12, groove: 0.08, energy: 0.14, structure: 0.12, genre: 0.12 };
@@ -30,12 +30,32 @@
   const r1 = (x) => Math.round(x * 10) / 10;
   const dot = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
 
-  function cosine100(a, b) {
-    if (!a || !b || a.length !== b.length || !a.length) return null;
+  // raw cosine of two vectors (null if unusable)
+  function cosRaw(a, b) {
+    if (!a || !b || a.length !== b.length || a.length < 2) return null; // 1-D vectors are always +-1: no information
     const d = Math.hypot(...a) * Math.hypot(...b);
-    if (d < 1e-9) return null;
-    return r1(clamp(((dot(a, b) / d) + 1) / 2 * 100));
+    return d < 1e-9 ? null : dot(a, b) / d;
   }
+  // percentile of v among calibration quantile points q (ascending) with percentiles p; ties resolve to the highest tied point
+  function rankOf(v, q, p) {
+    const n = q.length;
+    if (v <= q[0]) return p[0]; if (v >= q[n - 1]) return p[n - 1];
+    let i = 0; while (i + 1 < n && q[i + 1] <= v) i++;
+    if (q[i + 1] === q[i]) return p[i + 1];
+    return p[i] + ((v - q[i]) / (q[i + 1] - q[i])) * (p[i + 1] - p[i]);
+  }
+  // Feature-group similarity as "more alike than X% of typical pairs". The old (cos+1)/2 mapping put every pair of
+  // non-negative vectors at 50-100 (and 1-D groups at a constant 100); calibration measured on a real library fixes both.
+  function vecScore(group, a, b) {
+    const q = CAL && CAL.cos[group]; if (!q || q[7] - q[1] < 0.003) return null;   // uninformative group
+    const c = cosRaw(a, b); return c == null ? null : r1(rankOf(c, q, CAL.percentiles));
+  }
+  function scalarScore(name, x, y) {
+    const q = CAL && CAL.delta[name]; if (!q || x == null || y == null || q[7] === 0) return null; // degenerate feature (no spread in the library)
+    return r1(100 - rankOf(Math.abs(x - y), q, CAL.percentiles));
+  }
+  const cosine100 = (a, b) => { const c = cosRaw(a, b); return c == null ? null : r1(clamp(Math.max(0, c) * 100)); }; // plain, uncalibrated (tests / structure)
+  const avgOf = (arr) => { const v = arr.filter((x) => x != null); return v.length ? r1(v.reduce((s, x) => s + x, 0) / v.length) : null; };
 
   /* ---------------- tempo ---------------- */
   const RATIOS = [1.0, 2.0, 0.5];  // tempo equivalence: same, double-time, half-time
@@ -64,7 +84,7 @@
   }
   function keyScore(a, b, w = KEY_WEIGHTS) {
     const d = camelotDistance(a, b);
-    if (d === null) return 50;
+    if (d === null) return null; // unknown key: the factor is left out, not scored as a neutral 50
     if (a === b) return 100 * (w.same ?? 1);
     if (d === 0) return 100 * (w.relative ?? 0.92);
     if (d === 1) return 100 * (w.adjacent ?? 0.85);
@@ -84,7 +104,7 @@
     const mx = x.reduce((s, v) => s + v, 0) / x.length, my = y.reduce((s, v) => s + v, 0) / y.length;
     const cx = x.map((v) => v - mx), cy = y.map((v) => v - my);
     const d = Math.hypot(...cx) * Math.hypot(...cy);
-    const shape = d < 1e-9 ? 0.5 : (dot(cx, cy) / d + 1) / 2;       // arc shape agreement 0..1
+    const shape = d < 1e-9 ? 0 : Math.max(0, dot(cx, cy) / d);        // arc shape agreement 0..1 (uncorrelated = 0)
     const level = 1 - Math.min(1, Math.abs(mx - my) * 2);            // average-level agreement 0..1
     return r1(100 * (0.6 * shape + 0.4 * level));
   }
@@ -100,31 +120,32 @@
       const ks = new Set([...Object.keys(a.styles), ...Object.keys(b.styles)]);
       if (ks.size) { const x = [...ks].map((k) => a.styles[k] || 0), y = [...ks].map((k) => b.styles[k] || 0); const d = Math.hypot(...x) * Math.hypot(...y); if (d > 1e-9) return r1(clamp(dot(x, y) / d * 100)); }
     }
-    return cosine100(a.featureGroups.genre, b.featureGroups.genre);
+    return vecScore("genre", a.featureGroups.genre, b.featureGroups.genre);
   }
+
+  /* ---------------- shared feature groups (all calibrated, all may be null when data is missing) ---------------- */
+  function rhythmScore(a, b) {
+    return avgOf([vecScore("rhythm", a.featureGroups.rhythm, b.featureGroups.rhythm), scalarScore("rhythmicComplexity", a.profile.rhythmicComplexity, b.profile.rhythmicComplexity), scalarScore("danceability", a.profile.danceability, b.profile.danceability)]);
+  }
+  function timbreScore(a, b) {
+    return avgOf([vecScore("texture", a.featureGroups.texture, b.featureGroups.texture), scalarScore("brightness", a.profile.brightness, b.profile.brightness), scalarScore("bassDensity", a.profile.bassDensity, b.profile.bassDensity)]);
+  }
+  function harmonyScore(a, b, keyW) {
+    const chroma = avgOf([vecScore("harmony", a.featureGroups.harmony, b.featureGroups.harmony), scalarScore("harmonicComplexity", a.profile.harmonicComplexity, b.profile.harmonicComplexity)]);
+    const camel = keyScore(a.key.camelot, b.key.camelot, keyW);
+    if (chroma == null && camel == null) return null; if (chroma == null) return r1(camel); if (camel == null) return chroma;
+    return r1(0.7 * chroma + 0.3 * camel);
+  }
+  function energyScore(a, b) { return avgOf([scalarScore("energy", a.profile.energy, b.profile.energy), vecScore("energy", a.featureGroups.energy, b.featureGroups.energy)]); }
 
   /* ---------------- Similarity v2 (feature-based; embedding handled by SonicSimilarity) ---------------- */
   function similarity(a, b, weights = SIM_WEIGHTS, keyW = KEY_WEIGHTS) {
-    const g = (k) => cosine100(a.featureGroups[k], b.featureGroups[k]);
-    const danceClose = a.profile.danceability != null && b.profile.danceability != null ? 100 - Math.abs(a.profile.danceability - b.profile.danceability) : null;
-    const rhythmCos = g("rhythm"), drums = g("drums");
-    const rhythm = [rhythmCos, drums, danceClose].filter((x) => x != null);
-    const mfccSim = a.mfcc && b.mfcc ? cosine100(a.mfcc, b.mfcc) : null;
-    const texture = g("texture"), bass = g("bass");
-    const chroma = g("harmony"), melody = g("melody");
-    const camel = keyScore(a.key.camelot, b.key.camelot, keyW);
-    const eCos = g("energy"), eClose = clamp(100 - Math.abs(a.profile.energy - b.profile.energy) * 1.4);
-    const parts = {
-      tempo: tempoScore(a.bpm, b.bpm),
-      genre: genreScore(a, b),
-      rhythm: rhythm.length ? r1(rhythm.reduce((s, v) => s + v, 0) / rhythm.length) : null,
-      timbre: (() => { const v = [texture, bass, mfccSim].filter((x) => x != null); return v.length ? r1(v.reduce((s, x) => s + x, 0) / v.length) : null; })(),
-      harmony: chroma != null ? r1(0.55 * chroma + 0.15 * (melody ?? chroma) + 0.30 * camel) : r1(camel),
-      energy: eCos != null ? r1((eCos + eClose) / 2) : r1(eClose),
-      structure: curveSimilarity(a.energyCurve, b.energyCurve),
-    };
-    return { overall: weighted(parts, weights), ...parts };
+    const parts = { tempo: tempoScore(a.bpm, b.bpm), genre: genreScore(a, b), rhythm: rhythmScore(a, b), timbre: timbreScore(a, b), harmony: harmonyScore(a, b, keyW), energy: energyScore(a, b), structure: curveSimilarity(a.energyCurve, b.energyCurve) };
+    return { overall: weighted(parts, weights), ...parts, coverage: coverage(parts, weights) };
   }
+  // share of the configured weight that had data (1 = every factor present)
+  function coverage(parts, weights) { let have = 0, all = 0; for (const k of Object.keys(weights)) { all += weights[k]; if (parts[k] != null) have += weights[k]; } return all ? have / all : 0; }
+  const levelOf = (cov) => (cov >= 0.85 ? "high" : cov >= 0.6 ? "medium" : "low");
 
   /* ---------------- DJ Compatibility v2 ---------------- */
   function overlapBars(a, b) { return a.outroBars != null && b.introBars != null ? Math.min(a.outroBars, b.introBars) : null; }
@@ -152,36 +173,40 @@
     return r1(clamp(d <= 8 ? 100 - d : 92 - (d - 8) * 1.6));
   }
 
-  // ctx: { targetDelta } optional — the energy move the set's curve asks for at this point
+  // ctx: { targetDelta, bpmReliability:[a,b] } optional — the energy move the set's curve asks for / confidence of the two BPM values
   function djCompat(a, b, weights = DJ_WEIGHTS, keyW = KEY_WEIGHTS, ctx = {}) {
     const parts = {
       tempo: tempoScore(a.bpm, b.bpm),
-      key: r1(keyScore(a.key.camelot, b.key.camelot, keyW)),
-      rhythm: cosine100(a.featureGroups.rhythm, b.featureGroups.rhythm),
+      key: (() => { const k = keyScore(a.key.camelot, b.key.camelot, keyW); return k == null ? null : r1(k); })(),
+      rhythm: rhythmScore(a, b),
       groove: grooveScore(a, b),
       energy: energyProgressionScore(a, b, ctx.targetDelta),
       structure: structureScore(a, b),
       genre: genreScore(a, b),
     };
-    const overall = weighted(parts, weights);
-    return { overall, ...parts, transition: parts.energy, notes: explain(a, b, parts) };
+    const overall = weighted(parts, weights), cov = coverage(parts, weights);
+    const missing = Object.keys(weights).filter((k) => parts[k] == null);
+    const rel = ctx.bpmReliability ? Math.min(...ctx.bpmReliability.filter((x) => x != null)) : null;
+    let level = levelOf(cov); if (rel != null && rel < 55 && level === "high") level = "medium";
+    return { overall, ...parts, transition: parts.energy, coverage: r1(cov), confidence: { level, coverage: r1(cov), missing }, notes: explain(a, b, parts) };
   }
 
-  // Rule-based explanation: each sentence quotes the measured values it is based on.
+  // Rule-based explanation: every item carries a code + the measured values (for localisation) and an English text.
   function explain(a, b, p) {
-    const notes = [];
+    const notes = [], lvl = (v) => (v >= 85 ? "good" : v >= 60 ? "ok" : "warn");
     const rel = bpmRelation(a.bpm, b.bpm);
-    notes.push({ key: "tempo", level: p.tempo >= 85 ? "good" : p.tempo >= 60 ? "ok" : "warn",
+    notes.push({ key: "tempo", level: lvl(p.tempo), code: rel.octave ? "tempoOctave" : rel.distPct <= 6 ? "tempoOk" : "tempoFar", params: { a: a.bpm.toFixed(1), b: b.bpm.toFixed(1), d: rel.distPct.toFixed(1) },
       text: `${a.bpm.toFixed(1)} → ${b.bpm.toFixed(1)} BPM (${rel.octave ? "half/double-time, " : ""}Δ${rel.distPct.toFixed(1)}%${rel.distPct <= 6 ? ", within pitch-fader range" : ", beyond a normal pitch move"})` });
     const d = camelotDistance(a.key.camelot, b.key.camelot);
-    if (d != null) notes.push({ key: "key", level: p.key >= 85 ? "good" : p.key >= 60 ? "ok" : "warn",
+    if (d != null) notes.push({ key: "key", level: lvl(p.key), code: a.key.camelot === b.key.camelot ? "keySame" : d === 0 ? "keyRelative" : d === 1 ? "keyAdjacent" : "keyFar", params: { a: a.key.camelot, b: b.key.camelot, n: d },
       text: `${a.key.camelot} → ${b.key.camelot} (${a.key.camelot === b.key.camelot ? "same key" : d === 0 ? "relative major/minor" : d === 1 ? "adjacent on the wheel" : d + " steps apart"})` });
+    else notes.push({ key: "key", level: "none", code: "keyUnknown", params: {}, text: "Key unknown for one of the tracks — left out of the score" });
     const delta = Math.round(b.profile.energy - a.profile.energy);
-    notes.push({ key: "energy", level: p.energy >= 85 ? "good" : p.energy >= 60 ? "ok" : "warn", text: `Energy ${a.profile.energy.toFixed(0)} → ${b.profile.energy.toFixed(0)} (${delta >= 0 ? "+" : ""}${delta})` });
-    if (p.structure != null) { const o = overlapBars(a, b); notes.push({ key: "structure", level: p.structure >= 85 ? "good" : p.structure >= 60 ? "ok" : "warn", text: `Outro of A ${a.outroBars} bars, intro of B ${b.introBars} bars → ~${o} bars of overlap room` }); }
-    else notes.push({ key: "structure", level: "none", text: "No intro/outro data for one of the tracks (structure analysis not available or not labelled)" });
-    if (p.rhythm != null) notes.push({ key: "rhythm", level: p.rhythm >= 85 ? "good" : p.rhythm >= 60 ? "ok" : "warn", text: `Rhythm profile match ${Math.round(p.rhythm)}%` });
-    if (p.groove != null) notes.push({ key: "groove", level: p.groove >= 85 ? "good" : p.groove >= 60 ? "ok" : "warn", text: `Groove match ${Math.round(p.groove)}% (danceability / beat regularity)` });
+    notes.push({ key: "energy", level: lvl(p.energy), code: delta >= 0 ? "energyUp" : "energyDown", params: { a: a.profile.energy.toFixed(0), b: b.profile.energy.toFixed(0), d: (delta >= 0 ? "+" : "") + delta }, text: `Energy ${a.profile.energy.toFixed(0)} → ${b.profile.energy.toFixed(0)} (${delta >= 0 ? "+" : ""}${delta})` });
+    if (p.structure != null) { const o = overlapBars(a, b); notes.push({ key: "structure", level: lvl(p.structure), code: "structureOk", params: { out: a.outroBars, in: b.introBars, n: o }, text: `Outro of A ${a.outroBars} bars, intro of B ${b.introBars} bars → ~${o} bars of overlap room` }); }
+    else notes.push({ key: "structure", level: "none", code: "structureNone", params: {}, text: "No intro/outro data for one of the tracks (structure analysis not available or not labelled)" });
+    if (p.rhythm != null) notes.push({ key: "rhythm", level: lvl(p.rhythm), code: "rhythm", params: { v: Math.round(p.rhythm) }, text: `Rhythm profile match ${Math.round(p.rhythm)}%` });
+    if (p.groove != null) notes.push({ key: "groove", level: lvl(p.groove), code: "groove", params: { v: Math.round(p.groove) }, text: `Groove match ${Math.round(p.groove)}% (danceability / beat regularity)` });
     return notes;
   }
 
@@ -258,5 +283,5 @@
   }
 
   return { SIM_WEIGHTS, DJ_WEIGHTS, KEY_WEIGHTS, BUILD_WEIGHTS, CURVES, bpmRelation, tempoScore, camelotDistance, keyScore,
-           similarity, djCompat, genreScore, explain, overlapSeconds, overlapBars, curveAt, buildSet, cosine100, curveSimilarity };
+           similarity, djCompat, genreScore, explain, coverage, levelOf, rhythmScore, timbreScore, harmonyScore, energyScore, vecScore, scalarScore, rankOf, cosRaw, overlapSeconds, overlapBars, curveAt, buildSet, cosine100, curveSimilarity };
 });

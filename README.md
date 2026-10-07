@@ -1,33 +1,72 @@
-# NOESIS
+# a.to.b
 
-Developed by punk pozer. DJ tools for deeper selection: real audio analysis (BPM, key/Camelot, structure, sonic character), similarity, DJ
-compatibility and set building. Runs fully in the browser (static site, GitHub Pages); an optional backend adds deeper analysis.
+DJ selection, set building and transition planning, by punk pozer. Real audio analysis (BPM, key/Camelot, structure, sonic character), similarity,
+DJ compatibility, a Set Builder with a Transition Guide, and exports for Rekordbox / M3U8 / TXT. Runs fully in the browser (static site, GitHub Pages);
+an optional backend adds deeper analysis. Interface in **Русский / English** (Russian by default on a Russian system, switchable any time without re-analysis).
+
+> Formerly a.to.b. Existing libraries and sets keep loading (same storage keys); the desktop app keeps its `a.to.b` data folder so an installed engine survives.
+
+## What it does
+
+| Area | |
+|---|---|
+| **Analyze** | Import files or a whole folder (drag anywhere on the window). Four independent stages — **Local** (browser), **Essentia**, **Structure**, **Embedding** (backend); each can be run on its own and none requires another. Waveform with structure sections (Mono / Spectral), metrics, similar tracks with mini waveforms. |
+| **Scores** | *Sonic similarity* (how alike two tracks sound) and *DJ compatibility* (how well they mix) are always separate. Every score shows its factors and a confidence level (HIGH / MEDIUM / LOW). Factors without data are **left out and the weights re-normalised** — never guessed. |
+| **Set Builder** | 30 / 45 / 60 / 90 / 120 min, energy curves (incl. custom, draggable), crate, track roles (suggested or yours), drag & drop with a handle (mouse, touch, or ↑/↓ on the keyboard), locks, Auto / Manual mode with an explicit **Optimize**, *Find alternative* (scored against **both** neighbours), *What to play next* (Safe, Groove match, Energy up/down, Genre switch, Surprise), *Find a bridge*, an explainable **Set score**. Only the transitions that changed are recalculated. |
+| **Transition Guide** | Best mix-out / mix-in point (time, bar, phrase, section), overlap in bars, transition type, difficulty, confidence, with two aligned waveforms; drag a marker to set your own point (snaps to the bar grid, stored with the set, used by the exports). |
+| **Export** | Rekordbox XML (collection + playlist + optional memory cues / beat grid), M3U8, TXT tracklist, Transition Sheet (TXT / JSON); validated before export; the dialog includes the Rekordbox import steps. |
+
+## Honesty rules
+
+- Nothing is invented. Missing data is shown as «—» / "unavailable" with the reason.
+- The bar grid used for mix points is either **analyzed** (All-In-One downbeats) or **estimated** (constant tempo from BPM + first beat); estimated grids are labelled everywhere and never exported as a beat grid.
+- Section labels come from the model and can be wrong; they are shown as returned.
+- Manual values (BPM, key, genre, mix points) always win over automatic ones.
+- The Rekordbox XML follows AlphaTheta's published *XML file format for playlists sharing* (v1.0.0). It never touches Rekordbox's own database. It has been checked against that specification and our parser tests, not inside Rekordbox itself.
+
+## Score audit (what changed)
+
+The old feature scores mapped every cosine with `(cos+1)/2`, which puts any two non-negative feature vectors between 50 and 100 and made some groups
+(drums, bass: one-dimensional) constantly 100. Now (`audio/dj-engine.js`, `audio/calibration.js`, `tools/calibrate-groups.mjs`):
+
+- vector groups are scored as the **percentile of a random pair** measured on a reference library (45 tracks, 990 pairs); uninformative groups (all pairs identical) are dropped;
+- scalar features (drum / bass / melodic density, danceability, brightness, …) use the calibrated distribution of differences;
+- an unknown key is **not** scored as a neutral 50 — the factor is left out and the confidence drops;
+- the energy-curve shape no longer has a built-in 50 % baseline.
+
+## Install as an app / PWA
+
+`manifest.webmanifest` + the icons in `assets/icons/` make the site installable from the browser. The desktop app (below) is the full-engine version.
 
 ## Project layout
 
 | Folder | What |
 |---|---|
-| `index.html`, `ui/noesis.css` | app shell + the NOESIS design system (tokens at the top of the CSS) |
-| `ui/` | reusable UI primitives (`primitives.js`) and views: track page, library, set builder, sets/settings |
-| `app/` | state & routing, upload/analysis pipeline, backend stages, player & queue, track actions |
-| `engine/core.js` | local DSP (legacy BPM/key/genre/profile) — unchanged algorithms |
-| `audio/` | pure modules: Essentia.js client/worker, analysis fusion, **DJ engine v2** (similarity, DJ compatibility, set builder), sonic similarity, waveform, ID3 tags |
+| `index.html`, `ui/atob.css` | app shell + design system (tokens at the top of the CSS) |
+| `ui/` | views (`analyze`, `library`, `setbuilder`, `transition-guide`, `export-dialog`, `sets-settings`, `onboarding`) and `primitives.js` |
+| `app/` | state & routing, i18n (`i18n.js`, `i18n-en.js`, `i18n-ru.js`), import pipeline, backend stages, player, track actions |
+| `audio/` | pure, unit-tested modules: `dj-engine` (similarity, DJ compatibility, set builder), `calibration`, `grid`, `transition`, `set-tools`, `export`, plus Essentia client/worker, fusion, sonic similarity, waveform, ID3 |
+| `engine/core.js` | local DSP (BPM/key/genre/profile) |
 | `backend/` | FastAPI + Essentia (+ Discogs-EffNet) |
 | `structure/` | isolated environment for All-In-One structure analysis |
-| `assets/fonts/` | ABC Areal (not in git, see below) |
+| `assets/brand/`, `assets/icons/` | logo (colour / white / black), symbol, app icon, favicons, PWA icons |
+| `tools/` | calibration, icon generation, i18n key scan |
+| `test/` | `npm test` (62 tests: engine, grid, transitions, set tools, export, i18n key coverage) |
 
-Logo: `assets/logo.svg` (also the favicon); `ui/logo.js` holds its paths for the inline mark.
+## Privacy
 
-## Design system
+Analysis runs in your browser. Audio is sent only to the backend URL **you** configure (local by default). No API key is ever in the page; any future
+external provider would live on the server only. Library and sets stay in this browser (localStorage; audio files in IndexedDB).
 
-Tokens (`:root` in `ui/noesis.css`): 4 near-black surface levels, off-white text, 3 grey text levels, hairline borders, a spacing scale,
-layout sizes and transition times. **Colour carries information only**: structure (intro blue, verse violet, chorus coral, break/bridge amber,
-outro green — the labels are the model's, NOESIS never calls a section "drop") and status (green / amber / coral dots). Everything else is monochrome.
-Typography: ABC Areal 400 / 500 / 700 (+ italics), a monospace only for small technical readouts. Icons: one inline SVG family (`UI.icon`).
-Components are plain functions returning HTML (`UI.metric`, `UI.trackRow`, `UI.score`, `UI.statusDots`, `UI.camelotRing`, …); the waveform is a canvas (`Waveform.draw`).
+## Versions
 
-**Fonts:** ABC Areal is a commercial typeface, so the `.ttf` files are **git-ignored** (licence for web redistribution unconfirmed). Put the six static
-files in `assets/fonts/` locally (see the README there); without them the UI falls back to a neutral system sans-serif.
+App `0.5.0`, analysis version `6`. Stored tracks keep the version they were analysed with (Settings shows how many are older); nothing is silently re-analysed.
+Embeddings record model + version; outdated ones are flagged and recomputed on request.
+
+## Limitations
+
+Transition points need a bar grid (backend structure analysis, or a BPM + first beat from Essentia); local-only tracks get a compatibility score but no mix point.
+Windows runs the portable engine (no Essentia); structure analysis needs Apple Silicon (All-In-One MLX).
 
 ## Similarity v2, DJ Compatibility v2, Set Builder
 
@@ -151,7 +190,7 @@ Waveform с цветной полосой секций (intro/verse/chorus/break
 - **Runtime:** `essentia-tensorflow` (официальный алгоритм `TensorflowPredictEffnetDiscogs`), CPU. Этот пакет заменяет `essentia` в окружении бэкенда (не ставить оба).
 - **Эмбеддинг:** 1280-d на кадр (~1 с), размерность читается из модели. **Агрегация трека:** mean pooling по кадрам; покадровые векторы (float16) тоже хранятся на бэкенде для будущих section-level embeddings (`sonic.section_embedding`).
 - **Сходство:** cosine между mean-векторами → **калибровка** в UI-процент (`sonic_calibration.json`): % = перцентиль сырого cosine среди типичных пар треков, т.е. «91% = похожи сильнее, чем 91% случайных пар». Сырой cosine хранится/показывается отдельно (tooltip). Шкала откалибрована на 40 треках (780 пар) из локальных папок разработчика; `Settings → Recalibrate %` пересчитывает её по вашей библиотеке (≥15 треков).
-- **NOESIS Sonic Similarity** = 0.55·embedding + 0.15·rhythm + 0.15·timbre + 0.10·energy + 0.05·harmony (веса — `audio/sonic-similarity.js`, конфиг). Причины сходства показываются только если реальный под-скор высок **и** выделяется среди кандидатов.
+- **a.to.b Sonic Similarity** = 0.55·embedding + 0.15·rhythm + 0.15·timbre + 0.10·energy + 0.05·harmony (веса — `audio/sonic-similarity.js`, конфиг). Причины сходства показываются только если реальный под-скор высок **и** выделяется среди кандидатов.
 - **Хранение:** векторы только на бэкенде (`EmbeddingStore`, файлы `.npz` в кэше; интерфейс под FAISS / pgvector). В браузере — компактная метаданная (`analysis.sonic`: модель, версия, размерность, id, топ-стили). **Кэш/устаревание:** ключ = хэш аудио + `model` + `modelVersion`; при смене модели треки помечаются «outdated» (Settings → *Compute missing / outdated*).
 - **Где используется:** Similar Tracks (с ▶), Track Details → *Sonic profile* и *Similar in my library*, Next Track (режимы Safe / Balanced / Contrast — не «всегда самое похожее»), Find a Bridge (DJ-совместимость с обоими + положение между A и B в embedding-пространстве).
 - **Подготовлено, без UI:** `SimilarityProvider` (`LocalEmbeddingProvider` готов; `ExternalDiscoveryProvider` — заглушка под будущий внешний discovery, ключ только из env на сервере), `POST /api/sonic/journey` (Sonic Journey A→Target).
@@ -175,10 +214,10 @@ Ranking detail (`audio/genre-rank.js`): the displayed genre is the model's top s
 
 ## Desktop app (macOS / Windows)
 
-Download from **[Releases](https://github.com/PUNKPOZER/noesis/releases)**: `NOESIS-<version>-arm64.dmg` (Apple Silicon Mac) or `NOESIS Setup <version>.exe` (Windows). Open the .dmg and drag NOESIS to Applications.
+Download from **[Releases](https://github.com/PUNKPOZER/noesis/releases)**: `a.to.b-<version>-arm64.dmg` (Apple Silicon Mac) or `a.to.b Setup <version>.exe` (Windows). Open the .dmg and drag a.to.b to Applications.
 
-**Mac (Apple Silicon): the full version out of the box.** On the first launch NOESIS sets up its own analysis engine (progress screen, ~1.7 GB, a few minutes, internet needed once): Python 3.12 via the bundled `uv`, Essentia + TensorFlow, the All-In-One structure analyzer and the Discogs-EffNet model; ffmpeg is bundled. The engine lives in `~/Library/Application Support/NOESIS/engine` and starts and stops with the app (FastAPI on `127.0.0.1:8000`). Every later launch opens straight away. Help → *Repair advanced analysis…* reinstalls it. Everything runs locally; the music never leaves the computer.
-**Windows: the portable engine.** Essentia publishes no Windows build, so on Windows the engine runs *without* Essentia: on first launch NOESIS installs Python + ONNX Runtime and runs the **Discogs-EffNet model through the official ONNX export** (a numpy re-implementation of Essentia's mel front-end, verified against Essentia: embedding cosine 1.000000, activations within 1e-5). You get the same genres (400 Discogs styles), sonic similarity, "similar in my library", bridges and next-track modes as on the Mac. Not available on Windows: the whole-track Essentia analysis (BPM/key come from the in-browser Essentia.js on the first 90 s instead) and structure analysis (sections / downbeats; All-In-One needs Apple Silicon). The Windows build was compiled on GitHub but could not be run on a real Windows machine by the author — please report problems.
+**Mac (Apple Silicon): the full version out of the box.** On the first launch a.to.b sets up its own analysis engine (progress screen, ~1.7 GB, a few minutes, internet needed once): Python 3.12 via the bundled `uv`, Essentia + TensorFlow, the All-In-One structure analyzer and the Discogs-EffNet model; ffmpeg is bundled. The engine lives in `~/Library/Application Support/a.to.b/engine` and starts and stops with the app (FastAPI on `127.0.0.1:8000`). Every later launch opens straight away. Help → *Repair advanced analysis…* reinstalls it. Everything runs locally; the music never leaves the computer.
+**Windows: the portable engine.** Essentia publishes no Windows build, so on Windows the engine runs *without* Essentia: on first launch a.to.b installs Python + ONNX Runtime and runs the **Discogs-EffNet model through the official ONNX export** (a numpy re-implementation of Essentia's mel front-end, verified against Essentia: embedding cosine 1.000000, activations within 1e-5). You get the same genres (400 Discogs styles), sonic similarity, "similar in my library", bridges and next-track modes as on the Mac. Not available on Windows: the whole-track Essentia analysis (BPM/key come from the in-browser Essentia.js on the first 90 s instead) and structure analysis (sections / downbeats; All-In-One needs Apple Silicon). The Windows build was compiled on GitHub but could not be run on a real Windows machine by the author — please report problems.
 Intel Macs are not built (the structure analyzer needs Apple Silicon).
 
 Unsigned builds: macOS says "cannot be opened because the developer cannot be verified" — right-click the app → **Open** once (or System Settings → Privacy & Security → Open Anyway); Windows SmartScreen says "Windows protected your PC" — **More info → Run anyway**. Removing the warnings needs an Apple Developer ID / a Windows code-signing certificate.
@@ -187,8 +226,8 @@ The ABC Areal fonts are bundled only in builds made where `assets/fonts/*.ttf` e
 ```bash
 npm install && npm run vendor
 npm run desktop            # open the app window from a checkout (uses backend/.venv if it is set up)
-npm run dist:mac           # -> release/NOESIS-<version>-arm64.dmg
-npm run dist:win           # -> release/NOESIS Setup <version>.exe (build on Windows, or via the workflow)
+npm run dist:mac           # -> release/a.to.b-<version>-arm64.dmg
+npm run dist:win           # -> release/a.to.b Setup <version>.exe (build on Windows, or via the workflow)
 git tag v0.3.1 && git push --tags   # the "Desktop installers" workflow builds both and attaches them to a Release
 ```
 Developer mode: running from a checkout that has `backend/.venv` uses that backend instead of installing the engine. `npm run icon` regenerates `build/icon.png` from `assets/logo.svg`.

@@ -51,12 +51,13 @@ function mountPlayerIcons() {
 }
 function updateTransportUI() {
   const a = player.audio, playing = !a.paused && !a.ended;
+  if (!player.id) document.getElementById("pbTitle").textContent = tx("player.nothing");
   document.getElementById("pbPlay").innerHTML = UI.icon(playing ? "pause" : "play");
   document.getElementById("pbCur").textContent = fmtTime(a.currentTime);
   document.getElementById("pbDur").textContent = fmtTime(a.duration);
   document.getElementById("pbShuffle").classList.toggle("on", state.shuffle); document.getElementById("pbShuffle").setAttribute("aria-pressed", state.shuffle);
-  const rp = document.getElementById("pbRepeat"); rp.classList.toggle("on", state.repeat !== "off"); rp.setAttribute("aria-pressed", state.repeat !== "off"); rp.title = "Repeat: " + state.repeat;
-  document.querySelectorAll("[data-trackplay]").forEach((b) => { const on = player.id === b.dataset.trackplay && playing; b.innerHTML = UI.icon(on ? "pause" : "play"); b.setAttribute("aria-label", on ? "Pause" : "Play"); });
+  const rp = document.getElementById("pbRepeat"); rp.classList.toggle("on", state.repeat !== "off"); rp.setAttribute("aria-pressed", state.repeat !== "off"); rp.title = tx("player.repeat") + ": " + tx("player.repeat." + state.repeat);
+  document.querySelectorAll("[data-trackplay]").forEach((b) => { const on = player.id === b.dataset.trackplay && playing; b.innerHTML = UI.icon(on ? "pause" : "play"); b.setAttribute("aria-label", tx(on ? "player.pause" : "player.play")); });
   document.querySelectorAll("[data-simplay]").forEach((b) => { const on = player.id === b.dataset.simplay && playing; b.classList.toggle("on", on); b.innerHTML = UI.icon(on ? "pause" : "play"); });
 }
 function uiLoop() { redrawWaves(); updateTransportUI(); player.raf = player.audio.paused ? 0 : requestAnimationFrame(uiLoop); }
@@ -64,27 +65,25 @@ function uiLoop() { redrawWaves(); updateTransportUI(); player.raf = player.audi
 ["pause", "loadedmetadata", "seeked"].forEach((ev) => player.audio.addEventListener(ev, () => { redrawWaves(); updateTransportUI(); }));
 player.audio.addEventListener("ended", () => { if (state.repeat === "one") { player.audio.currentTime = 0; player.audio.play(); } else playAdjacent(1, true); redrawWaves(); updateTransportUI(); });
 
-function showPlayer(on) {
-    document.getElementById("playerBar").classList.toggle("idle", !on);
-}
+function showPlayer(on) { document.getElementById("playerBar").classList.toggle("idle", !on); }
 async function playTrack(id, seekFrac) {
   const t = findTrack(id); if (!t) return;
   if (player.id !== id) {
     const blob = await getAudioBlob(id);
-    if (!blob) { toast("This track has no audio file — choose one"); attachAudioPicker(id); return; }
+    if (!blob) { toast(tx("toast.noAudio")); attachAudioPicker(id); return; }
     if (player.url) URL.revokeObjectURL(player.url);
     player.url = URL.createObjectURL(blob);
     player.audio.src = player.url;
     player.id = id; player.wf = trackWaveform(id);
     document.getElementById("pbTitle").textContent = t.title;
-    document.getElementById("pbArtist").textContent = t.artist;
+    document.getElementById("pbArtist").textContent = dispArtist(t);
     document.getElementById("pbArt").innerHTML = UI.art(t, "xs");
   }
   showPlayer(true);
   const wc = document.getElementById("pbWave"); wc.dataset.kind = "row"; bindWave(wc, id);
   const seek = () => { if (seekFrac != null && isFinite(player.audio.duration)) player.audio.currentTime = seekFrac * player.audio.duration; };
   if (isFinite(player.audio.duration)) seek(); else player.audio.addEventListener("loadedmetadata", seek, { once: true });
-  try { await player.audio.play(); } catch (e) { toast("Could not play: " + (e.message || e)); }
+  try { await player.audio.play(); } catch (e) { toast(tx("toast.playFail", { err: e.message || e })); }
   updateTransportUI();
 }
 function togglePlay(id) { if (player.id === id && !player.audio.paused) player.audio.pause(); else playTrack(id); }
@@ -92,12 +91,12 @@ function stopPlayer() {
   player.audio.pause(); player.audio.removeAttribute("src"); player.audio.load();
   if (player.url) URL.revokeObjectURL(player.url);
   player.url = null; player.id = null; player.wf = null;
-  document.getElementById("pbTitle").textContent = "Nothing playing"; document.getElementById("pbArtist").textContent = ""; document.getElementById("pbArt").innerHTML = "";
+  document.getElementById("pbTitle").textContent = tx("player.nothing"); document.getElementById("pbArtist").textContent = ""; document.getElementById("pbArt").innerHTML = "";
   showPlayer(false); updateTransportUI(); redrawWaves();
 }
 
 /* ---- queue: explicit queue first, otherwise library order ---- */
-function enqueue(id) { if (!state.queue.includes(id)) state.queue.push(id); toast("Added to queue"); renderQueueIfOpen(); }
+function enqueue(id) { if (!state.queue.includes(id)) state.queue.push(id); toast(tx("toast.queued")); renderQueueIfOpen(); }
 function playAdjacent(dir, auto = false) {
   let order = state.queue.length ? state.queue.slice() : state.library.map((t) => t.id);
   if (!order.length) return;
@@ -113,8 +112,8 @@ function openQueue() {
   const root = document.getElementById("drawerRoot");
   if (root.firstChild && root.firstChild.dataset.kind === "queue") { root.innerHTML = ""; return; }
   const rows = state.queue.map(findTrack).filter(Boolean);
-  root.innerHTML = `<aside class="drawer open" data-kind="queue" aria-label="Queue"><div class="ctx-head"><span class="label">Queue · ${rows.length}</span><button class="iconbtn" data-qclose aria-label="Close">${UI.icon("close")}</button></div>
-    ${rows.length ? rows.map((t, i) => `<div class="trow" data-open-track="${t.id}">${`<span class="artplay">${UI.art(t, "sm")}</span>`}<div style="min-width:0"><div class="t1">${escapeHtml(t.title)}</div><div class="t2">${escapeHtml(t.artist)}</div></div><button class="iconbtn" data-qremove="${i}" aria-label="Remove">${UI.icon("close")}</button></div>`).join("") : `<div class="empty">Queue is empty. Use “Add to → Queue” on any track.</div>`}</aside>`;
+  root.innerHTML = `<aside class="drawer open" data-kind="queue" aria-label="${escapeHtml(tx("player.queue"))}"><div class="dhead"><span class="label">${escapeHtml(tx("player.queue"))} · ${rows.length}</span><button class="iconbtn" data-qclose aria-label="${escapeHtml(tx("common.close"))}">${UI.icon("close")}</button></div>
+    ${rows.length ? rows.map((t, i) => `<div class="trow" data-open-track="${t.id}">${`<span class="artplay">${UI.art(t, "sm")}</span>`}<div style="min-width:0"><div class="t1">${escapeHtml(t.title)}</div><div class="t2">${escapeHtml(t.artist)}</div></div><button class="iconbtn" data-qremove="${i}" aria-label="${escapeHtml(tx("common.remove"))}">${UI.icon("close")}</button></div>`).join("") : `<div class="empty">${escapeHtml(tx("player.queueEmpty"))}</div>`}</aside>`;
   root.querySelector("[data-qclose]").onclick = () => (root.innerHTML = "");
   root.querySelectorAll("[data-qremove]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); state.queue.splice(+b.dataset.qremove, 1); openQueue(); openQueue(); }));
 }

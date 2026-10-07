@@ -1,5 +1,5 @@
 #!/bin/bash
-# Double-click me (macOS): installs what is missing on first run, then starts NOESIS.
+# Double-click me (macOS): installs what is missing on first run, then starts a.to.b.
 cd "$(dirname "$0")"
 export PATH="$HOME/.local/node/bin:/opt/homebrew/bin:/usr/local/bin:/Library/Frameworks/Python.framework/Versions/3.14/bin:$PATH"
 

@@ -1,12 +1,12 @@
 {
-  "name": "noesis",
-  "version": "0.4.1",
+  "name": "atob",
+  "version": "0.5.0",
   "private": true,
-  "description": "NOESIS — DJ tools for deeper selection (by punk pozer)",
+  "description": "a.to.b — DJ selection, set building and transition planning (by punk pozer)",
   "scripts": {
     "vendor": "node scripts/vendor-essentia.mjs",
     "start": "node scripts/serve.mjs",
-    "test": "node --test",
+    "test": "node --test \"test/*.test.mjs\"",
     "build": "node scripts/build.mjs",
     "setup": "bash scripts/setup.sh",
     "dev": "node scripts/dev.mjs",
@@ -30,9 +30,9 @@
   "author": "punk pozer",
   "homepage": "https://github.com/PUNKPOZER/noesis",
   "build": {
-    "appId": "com.punkpozer.noesis",
-    "productName": "NOESIS",
-    "copyright": "developed by punk pozer",
+    "appId": "com.punkpozer.atob",
+    "productName": "a.to.b",
+    "copyright": "punk pozer",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -41,6 +41,7 @@
       "desktop/*.js",
       "desktop/*.html",
       "index.html",
+      "manifest.webmanifest",
       "app/**",
       "audio/**",
       "engine/**",

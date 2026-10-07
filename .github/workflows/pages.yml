@@ -1,4 +1,4 @@
-# Deploys NOESIS to GitHub Pages on every push to main.
+# Deploys a.to.b to GitHub Pages on every push to main.
 # One-time setup in the repo: Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
 name: Deploy to GitHub Pages
 on:

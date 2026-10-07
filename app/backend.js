@@ -4,6 +4,7 @@ let advChain = Promise.resolve();
 const advRunning = new Set();
 function queueAdvanced(id, file) {
   if (!window.BackendClient || !BackendClient.apiUrl()) return;
+  const tr = findTrack(id); if (tr && tr.analysis && tr.analysis.status !== "COMPLETE") { tr.analysis.status = "QUEUED"; refreshTrackViews(id); }
   advChain = advChain.then(() => runAdvanced(id, file)).catch(e => console.warn("advanced analysis", e));
 }
 async function runAdvanced(id, file) {
@@ -11,7 +12,7 @@ async function runAdvanced(id, file) {
   if (!t || !t.analysis || advRunning.has(id)) return;
   if (!file) {
     const blob = await getAudioBlob(id);
-    if (!blob) { toast("Для этого трека нет аудиофайла — выберите файл"); attachAudioPicker(id); return; }
+    if (!blob) { toast(tx("toast.noAudio")); attachAudioPicker(id); return; }
     file = new File([blob], t.filename || "track", { type: blob.type });
   }
   advRunning.add(id);
@@ -20,9 +21,10 @@ async function runAdvanced(id, file) {
   try {
     const h = await BackendClient.health();
     if (!h.online) { t.analysis.backend = { status: "OFFLINE", reason: h.reason }; t.analysis.status = "LOCAL_ANALYSIS"; return; }
+    if (h.info && h.info.sonic && h.info.sonic.modelVersion) t.analysis.modelVersion = h.info.sonic.modelVersion;
     // Portable engines (e.g. Windows) have no whole-track Essentia analysis: skip it and keep going with structure / sonic.
     if (h.info && h.info.analysis && h.info.analysis.available === false) {
-      t.analysis.backend = { status: "UNAVAILABLE", reason: "this engine runs without Essentia (portable mode) — BPM/key come from the in-browser analysis" };
+      t.analysis.backend = { status: "UNAVAILABLE", reason: tx("reason.portable") };
     } else {
       const r = await BackendClient.analyze(file);
       if (!r.ok) { t.analysis.backend = { status: "ERROR", reason: r.reason }; t.analysis.status = "FAILED"; return; }
@@ -33,7 +35,8 @@ async function runAdvanced(id, file) {
     t.analysis.status = "COMPLETE";
   } finally {
     advRunning.delete(id);
-    persistLibrary();
+    if (t.analysis.status === "QUEUED" || t.analysis.status === "ADVANCED_ANALYSIS") t.analysis.status = "LOCAL_ANALYSIS";
+    touchTrack(id); persistLibrary();
     refreshTrackViews(id);
   }
 }
@@ -41,7 +44,7 @@ async function runAdvanced(id, file) {
 async function runStructureStage(t, file, health) {
   const an = t.analysis;
   if (!(health.info && health.info.structure && health.info.structure.available)) {
-    an.structure = { status: "UNAVAILABLE", reason: "structure analyzer not installed on the backend" }; return;
+    an.structure = { status: "UNAVAILABLE", reason: tx("reason.noStructure") }; return;
   }
   an.status = "STRUCTURE_ANALYSIS"; refreshTrackViews(t.id);
   const r = await BackendClient.structure(file);
@@ -53,7 +56,7 @@ async function runStructureStage(t, file, health) {
 async function runSonicStage(t, file, health) {
   const an = t.analysis;
   if (!(health.info && health.info.sonic && health.info.sonic.available)) {
-    an.sonic = { status: "UNAVAILABLE", reason: "sonic embedding runtime not installed on the backend" }; return;
+    an.sonic = { status: "UNAVAILABLE", reason: tx("reason.noSonic") }; return;
   }
   an.status = "SONIC_EMBEDDING"; refreshTrackViews(t.id);
   const r = await BackendClient.embed(file);
@@ -77,6 +80,23 @@ function applyGenreFromSonic(t) {
   t.genre = { primary: styleName(a.label), parent: a.label.split("---")[0], confidence: Math.round(a.score * 100), method: "discogs-effnet",
               tempoAdjusted: a.rank !== 0, secondary: rest.slice(0, 4).map((x) => [styleName(x.label), Math.round(x.score * 100)]) };
 }
+// one stage on its own (the four stage pills are independent; none requires another)
+async function runStageOnly(id, stage) {
+  const tr = findTrack(id); if (!tr || !tr.analysis) return;
+  if (stage === "embedding") return runSonicOnly(id);
+  const blob = await getAudioBlob(id); if (!blob) { toast(tx("toast.noAudio")); attachAudioPicker(id); return; }
+  const file = new File([blob], tr.filename || "track", { type: blob.type });
+  const h = await BackendClient.health(); if (!h.online) { toast(tx("toast.backendOffline")); return; }
+  advChain = advChain.then(async () => {
+    const an = tr.analysis; an.status = stage === "structure" ? "STRUCTURE_ANALYSIS" : "ADVANCED_ANALYSIS"; refreshTrackViews(id);
+    try {
+      if (stage === "structure") await runStructureStage(tr, file, h);
+      else if (h.info && h.info.analysis && h.info.analysis.available === false) an.backend = { status: "UNAVAILABLE", reason: tx("reason.portable") };
+      else { const r = await BackendClient.analyze(file); if (r.ok) applyBackendResult(tr, r.result); else an.backend = { status: "ERROR", reason: r.reason }; }
+    } finally { an.status = "COMPLETE"; touchTrack(id); persistLibrary(); refreshTrackViews(id); }
+  }).catch((e) => console.warn("stage", e));
+  return advChain;
+}
 async function runSonicOnly(id) {
   const t = findTrack(id); if (!t || !t.analysis) return;
   const blob = await getAudioBlob(id); if (!blob) return;
@@ -84,7 +104,7 @@ async function runSonicOnly(id) {
   const h = await BackendClient.health(); if (!h.online) return;
   advChain = advChain.then(async () => {
     t.analysis.status = "SONIC_EMBEDDING"; refreshTrackViews(id);
-    try { await runSonicStage(t, file, h); } finally { t.analysis.status = "COMPLETE"; persistLibrary(); refreshTrackViews(id); }
+    try { await runSonicStage(t, file, h); } finally { t.analysis.status = "COMPLETE"; touchTrack(id); persistLibrary(); refreshTrackViews(id); }
   }).catch(e => console.warn("sonic", e));
   return advChain;
 }
@@ -93,12 +113,12 @@ function applyStructure(t, res) {
   an.structure = {
     status: "AVAILABLE", analyzer: res.analyzer.name + " " + res.analyzer.version, structureVersion: res.structureVersion,
     segments: d.segments.map(s => ({ start: s.start, end: s.end, label: s.label, energyDb: s.energyDb })),
-    downbeatCount: d.downbeatCount, firstDownbeat: d.firstDownbeat, barSeconds: d.barSeconds, bpm: d.bpm,
+    grid: Grid.encode(res.downbeats || []), downbeatCount: d.downbeatCount, firstDownbeat: d.firstDownbeat, barSeconds: d.barSeconds, bpm: d.bpm,
     introDuration: d.introDuration, outroDuration: d.outroDuration, introBars: d.introBars, outroBars: d.outroBars,
     sectionBoundaries: d.sectionBoundaries, majorTransitions: d.majorTransitions, breakdownPositions: d.breakdownPositions,
     energySectionChanges: d.energySectionChanges.filter(c => c.major), embeddingRef: res.embeddingDims ? { id: res.id, dims: res.embeddingDims, store: "backend" } : null,
   };
-  an.version = Math.max(an.version || 2, 4);
+  an.version = Math.max(an.version || 2, 4); delete t._grid;
   // All-In-One's tempo is one more independent vote for the BPM consensus (manual still wins)
   if (!mo.bpm && d.bpm && an.backend && an.backend.status === "AVAILABLE") {
     const cands = { ...(an.bpm.candidates || {}), allin1: d.bpm };
@@ -194,25 +214,32 @@ function sonicStale(t) {
 
 let _refreshQueued = false;
 function refreshTrackViews(id) {
-  // re-render the active view once per frame; never while the user is typing in a field of the track page
+  // re-render the active view once per frame; never while the user is typing in a field of the view
   if (_refreshQueued) return; _refreshQueued = true;
   requestAnimationFrame(() => {
     _refreshQueued = false;
     const ae = document.activeElement;
-    if (ae && /^(input|textarea|select)$/i.test(ae.tagName) && ae.closest("#workspace")) return;
-    const ws = document.getElementById("workspace"), top = ws.scrollTop;
-    renderActiveView(); ws.scrollTop = top;
+    if (ae && /^(input|textarea|select)$/i.test(ae.tagName) && ae.closest("#view")) return;
+    renderActiveView();
   });
 }
 
+// backend pill: local only / online (+engine) / offline — and how many tracks are waiting for the advanced stages
+function updateBackendPill() {
+  const dot = document.getElementById("backendDot"), txt = document.getElementById("backendText"), pill = document.getElementById("backendPill");
+  if (!dot) return;
+  const q = state.library.filter((x) => x.analysis && (x.analysis.status === "QUEUED" || /ANALYSIS$|EMBEDDING$/.test(x.analysis.status) && x.analysis.status !== "LOCAL_ANALYSIS")).length;
+  if (!BackendClient.apiUrl()) { txt.textContent = t("status.localOnly"); dot.className = "dot"; }
+  else if (!state.backendInfo) { txt.textContent = t("status.offline"); dot.className = "dot off"; }
+  else { txt.textContent = t("status.online") + (q ? " · " + q : ""); dot.className = "dot " + (q ? "run" : "on"); }
+  pill.setAttribute("title", t("status.openSettings"));
+}
 async function refreshBackendPill() {
-  const dot = document.getElementById("backendDot"), txt = document.getElementById("backendText");
-  if (!BackendClient.apiUrl()) { txt.textContent = "Local only"; dot.className = "dot"; state.backendInfo = null; return { online: false, reason: "backend URL not configured" }; }
+  if (!BackendClient.apiUrl()) { state.backendInfo = null; updateBackendPill(); return { online: false, reason: "backend URL not configured" }; }
   const h = await BackendClient.health();
   state.backendInfo = h.online ? h.info : null;
-  txt.textContent = h.online ? "Backend online" : "Backend offline";
-  dot.className = "dot " + (h.online ? "on" : "off");
-  if (state.tab === "settings" && !(document.activeElement && document.activeElement.matches("input"))) renderSettingsView();
+  updateBackendPill();
+  if (state.tab === "settings" && !(document.activeElement && document.activeElement.matches("input"))) renderActiveView();
   return h;
 }
 document.getElementById("backendPill").addEventListener("click", () => setActiveTab("settings"));
@@ -223,7 +250,7 @@ async function keepAudio(id, file) {
   sessionFiles.set(id, file);
   const ok = await AudioStore.put(id, file);
   const tr = findTrack(id); if (tr && tr.hasAudio !== !!ok) { tr.hasAudio = !!ok; persistLibrary(); }
-  if (!ok && !keepAudio.warned) { keepAudio.warned = true; toast("Браузер не сохраняет аудио (IndexedDB) — плеер работает до перезагрузки страницы"); }
+  if (!ok && !keepAudio.warned) { keepAudio.warned = true; toast(t("toast.noIndexedDb")); }
 }
 async function getAudioBlob(id) { return sessionFiles.get(id) || (await AudioStore.get(id)); }
 
@@ -250,8 +277,8 @@ function attachAudioPicker(id) {
   inp.onchange = async () => {
     const f = inp.files[0]; if (!f) return;
     const t = findTrack(id); if (!t) return;
-    try { await upgradeTrackAudio(t, f); toast("Аудио привязано: " + t.title); playTrack(id); }
-    catch (e) { toast("Не удалось прочитать файл: " + (e.message || e)); }
+    try { await upgradeTrackAudio(t, f); toast(tx("toast.attached", { name: t.title })); playTrack(id); }
+    catch (e) { toast(tx("toast.readFail", { err: e.message || e })); }
   };
   inp.click();
 }

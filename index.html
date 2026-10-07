@@ -2,113 +2,63 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NOESIS</title>
-<meta name="description" content="NOESIS — DJ tools for deeper selection. Real audio analysis, similarity and set building.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>a.to.b</title>
+<meta name="description" content="a.to.b — DJ selection, set building and transition planning. Local-first audio analysis.">
+<meta name="theme-color" content="#060606">
 <meta name="author" content="punk pozer">
-<meta name="theme-color" content="#080909">
-<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
-<link rel="stylesheet" href="ui/noesis.css">
+<link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="ui/atob.css">
 </head>
 <body>
 <div class="app" id="app">
-
-  <header class="topbar">
-    <div class="brand">
-      <span id="brandMark"></span><span class="wordmark"><span class="name">NOESIS</span><span class="by">developed by punk pozer</span></span><span class="desc">DJ tools<br>for deeper selection</span>
-    </div>
-    <nav class="topnav" id="mainNav" aria-label="Main">
-      <button data-tab="analyze" class="active">Analyze</button>
-      <button data-tab="library">Library</button>
-      <button data-tab="setbuilder">Set Builder</button>
-      <button data-tab="sets">Sets</button>
-      <button data-tab="explore">Explore</button>
+  <header class="header">
+    <span id="logoSlot" aria-label="a.to.b"></span>
+    <nav class="nav" id="mainNav" aria-label="Main">
+      <button data-tab="analyze" class="active" data-i18n="nav.analyze">Analyze</button>
+      <button data-tab="library" data-i18n="nav.library">Library</button>
+      <button data-tab="setbuilder" data-i18n="nav.setbuilder">Set Builder</button>
+      <button data-tab="sets" data-i18n="nav.sets">Sets</button>
+      <button data-tab="explore" data-i18n="nav.explore">Explore</button>
     </nav>
-    <div class="topright">
-      <button class="backend" id="backendPill" title="Advanced Analysis backend — open settings"><i class="dot" id="backendDot"></i><span id="backendText">Local only</span></button>
-      <label class="searchbox"><span id="searchIcon"></span><input id="globalSearch" type="search" placeholder="Search library" aria-label="Search library"></label>
-      <button class="iconbtn ctx-toggle" id="ctxToggle" aria-label="Toggle context panel"></button>
-      <button class="iconbtn" id="settingsBtn" aria-label="Settings" title="Settings"></button>
+    <div class="header-right">
+      <button class="chip-status" id="backendPill" data-i18n-title="status.openSettings"><i class="dot" id="backendDot"></i><span class="txt" id="backendText">Local only</span></button>
+      <button class="langbtn" id="langBtn" aria-label="Language"><b>EN</b> / RU</button>
+      <button class="iconbtn" id="settingsBtn" data-i18n-aria="nav.settings" data-i18n-title="nav.settings"></button>
     </div>
   </header>
 
-  <div class="body">
-    <aside class="sidebar" id="sidebar" aria-label="Navigation and filters">
-      <nav class="sidenav" id="sideNav">
-        <button data-tab="analyze" class="active"><span class="n">01</span>Analyze</button>
-        <button data-tab="library"><span class="n">02</span>Library</button>
-        <button data-tab="setbuilder"><span class="n">03</span>Set Builder</button>
-        <button data-tab="sets"><span class="n">04</span>Sets</button>
-        <button data-tab="explore"><span class="n">05</span>Explore</button>
-      </nav>
-      <div class="fhead label">Filters <button class="linkbtn" id="filtersReset" style="float:right">Reset</button></div>
-      <details class="fsec" open><summary>BPM</summary><div class="fbody"><div class="range2"><input type="number" id="fBpmMin" placeholder="min"><span>–</span><input type="number" id="fBpmMax" placeholder="max"></div></div></details>
-      <details class="fsec"><summary>Key</summary><div class="fbody"><div class="tags" id="fKeyTags"></div></div></details>
-      <details class="fsec"><summary>Genre</summary><div class="fbody"><div class="tags" id="fGenreTags"></div></div></details>
-      <details class="fsec"><summary>Energy</summary><div class="fbody"><div class="range2"><input type="number" id="fEnergyMin" placeholder="min"><span>–</span><input type="number" id="fEnergyMax" placeholder="max"></div></div></details>
-      <details class="fsec"><summary>Similarity</summary><div class="fbody"><input type="number" id="fMinSim" placeholder="min % vs. selected track"></div></details>
-      <details class="fsec"><summary>Additional</summary><div class="fbody"><select class="field" id="fStatus" aria-label="Analysis status"><option value="">Any status</option><option value="COMPLETE">Complete</option><option value="STRUCTURE">Has structure</option><option value="SONIC">Has embedding</option><option value="NOAUDIO">Without audio file</option></select></div></details>
-    </aside>
+  <main class="main" id="main">
+    <div id="analyzeProgress" class="hidden" role="status"></div>
+    <div id="view" class="view"></div>
+  </main>
 
-    <main class="workspace" id="workspace">
-
-      <!-- ============ ANALYZE ============ -->
-      <section id="tab-analyze" aria-label="Analyze"><div class="pad">
-        <div class="hero" id="hero">
-          <div class="heroText">
-            <h1 class="display">Drop tracks<br>or a folder <span aria-hidden="true">↗</span></h1>
-            <p class="sub">Real audio analysis in your browser.</p>
-            <div class="fmt label">MP3 · WAV · AIFF · FLAC · M4A</div>
-          </div>
-          <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Drop audio files or a folder here">
-            <input type="file" id="fileInput" accept=".mp3,.wav,.aiff,.aif,.flac,.m4a,audio/*" multiple />
-            <input type="file" id="folderInput" webkitdirectory directory multiple />
-            <div class="dz-lead"><span class="dz-icon" id="dzIcon"></span></div>
-            <div class="dz-text"><div class="label">or drag &amp; drop here</div></div>
-            <div class="dz-actions"><button class="btn" id="pickFilesBtn">Choose files</button><button class="btn" id="pickFolderBtn">Choose folder</button></div>
-          </div>
-        </div>
-        <div id="analyzeProgress" class="hidden"></div>
-        <div id="trackPage" class="hidden"></div>
-      </div></section>
-
-      <!-- ============ LIBRARY ============ -->
-      <section id="tab-library" class="hidden" aria-label="Library"><div class="pad" id="libraryView"></div></section>
-
-      <!-- ============ SET BUILDER ============ -->
-      <section id="tab-setbuilder" class="hidden" aria-label="Set Builder"><div class="pad" id="setBuilderView"></div></section>
-
-      <!-- ============ SETS ============ -->
-      <section id="tab-sets" class="hidden" aria-label="Sets"><div class="pad" id="setsView"></div></section>
-
-      <!-- ============ EXPLORE ============ -->
-      <section id="tab-explore" class="hidden" aria-label="Explore"><div class="pad" id="exploreView"></div></section>
-
-      <!-- ============ SETTINGS ============ -->
-      <section id="tab-settings" class="hidden" aria-label="Settings"><div class="pad" id="settingsView"></div></section>
-
-    </main>
-
-    <aside class="context" id="context" aria-label="Context"><div id="contextPanel"></div></aside>
-  </div>
-
-  <footer class="player idle" id="playerBar" aria-label="Player">
-    <div class="pl-track"><span id="pbArt"></span><div style="min-width:0"><div class="t1" id="pbTitle">Nothing playing</div><div class="t2" id="pbArtist"></div></div></div>
-    <div class="transport">
-      <button class="iconbtn" id="pbShuffle" aria-label="Shuffle" aria-pressed="false"></button>
-      <button class="iconbtn" id="pbPrev" aria-label="Previous"></button>
-      <button class="playbtn" id="pbPlay" aria-label="Play / pause"></button>
-      <button class="iconbtn" id="pbNext" aria-label="Next"></button>
-      <button class="iconbtn" id="pbRepeat" aria-label="Repeat" aria-pressed="false"></button>
+  <footer class="player" id="playerBar" aria-label="Player">
+    <div class="pl-track"><span id="pbArt"></span><div style="min-width:0"><div class="t1" id="pbTitle"></div><div class="t2" id="pbArtist"></div></div></div>
+    <div class="pl-center">
+      <div class="transport">
+        <button class="iconbtn" id="pbShuffle" aria-pressed="false" data-i18n-aria="player.shuffle"></button>
+        <button class="iconbtn" id="pbPrev" data-i18n-aria="player.prev"></button>
+        <button class="playbtn" id="pbPlay" data-i18n-aria="player.play"></button>
+        <button class="iconbtn" id="pbNext" data-i18n-aria="player.next"></button>
+        <button class="iconbtn" id="pbRepeat" aria-pressed="false" data-i18n-aria="player.repeat"></button>
+      </div>
+      <div class="tl"><span class="mono" id="pbCur">0:00</span><canvas class="wave row" id="pbWave" aria-label="Timeline"></canvas><span class="mono" id="pbDur">0:00</span></div>
     </div>
-    <div class="tl"><span class="mono dim" id="pbCur">0:00</span><canvas class="wave row" id="pbWave" aria-label="Timeline"></canvas><span class="mono dim" id="pbDur">0:00</span></div>
-    <div class="right"><span class="dim" id="pbVolIcon"></span><input class="vol" id="pbVol" type="range" min="0" max="1" step="0.01" value="0.9" aria-label="Volume"><button class="iconbtn" id="pbQueue" aria-label="Queue"></button><button class="iconbtn" id="pbClose" aria-label="Close player"></button></div>
+    <div class="pl-right"><span class="dim" id="pbVolIcon"></span><input class="vol" id="pbVol" type="range" min="0" max="1" step="0.01" value="0.9" data-i18n-aria="player.volume"><button class="iconbtn" id="pbQueue" data-i18n-aria="player.queue"></button><button class="iconbtn" id="pbClose" data-i18n-aria="player.close"></button></div>
   </footer>
 </div>
+<input type="file" id="fileInput" accept=".mp3,.wav,.aiff,.aif,.flac,.m4a,audio/*" multiple hidden />
+<input type="file" id="folderInput" webkitdirectory directory multiple hidden />
 <div id="drawerRoot"></div>
 <div id="menuRoot"></div>
 <div id="modalRoot"></div>
 <div id="dialogRoot"></div>
+<div id="onboardRoot"></div>
+<div id="tipRoot"></div>
 <div id="toastRoot"></div>
 
 <!-- audio modules (pure / worker clients) -->
@@ -118,10 +68,18 @@
 <script src="audio/audio-store.js"></script>
 <script src="audio/backend-client.js"></script>
 <script src="audio/sonic-similarity.js"></script>
+<script src="audio/calibration.js"></script>
 <script src="audio/dj-engine.js"></script>
+<script src="audio/grid.js"></script>
+<script src="audio/transition.js"></script>
+<script src="audio/set-tools.js"></script>
+<script src="audio/export.js"></script>
 <script src="audio/genre-rank.js"></script>
 <script src="audio/id3.js"></script>
 <script src="ui/logo.js"></script>
+<script src="app/i18n-en.js"></script>
+<script src="app/i18n-ru.js"></script>
+<script src="app/i18n.js"></script>
 <script src="ui/primitives.js"></script>
 <script src="app/shims.js"></script>
 <!-- engine + app -->
@@ -132,10 +90,13 @@
 <script src="app/player.js"></script>
 <script src="app/actions.js"></script>
 <!-- views -->
-<script src="ui/track-page.js"></script>
+<script src="ui/analyze.js"></script>
 <script src="ui/library.js"></script>
 <script src="ui/setbuilder.js"></script>
+<script src="ui/transition-guide.js"></script>
+<script src="ui/export-dialog.js"></script>
 <script src="ui/sets-settings.js"></script>
+<script src="ui/onboarding.js"></script>
 <script src="app/init.js"></script>
 </body>
 </html>

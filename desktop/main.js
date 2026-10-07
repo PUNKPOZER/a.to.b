@@ -1,4 +1,4 @@
-/* NOESIS desktop shell (Electron): the same static app in its own window, served from a loopback-only HTTP server
+/* a.to.b desktop shell (Electron): the same static app in its own window, served from a loopback-only HTTP server
  * (so Web Workers, WASM and IndexedDB behave exactly as on the web). In a repo checkout it also starts the optional
  * analysis backend when backend/.venv exists. */
 const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require("electron");
@@ -8,9 +8,11 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 
+// the app used to be called NOESIS: keep its data folder so an installed engine, models and settings survive the rename
+app.setPath("userData", path.join(app.getPath("appData"), "NOESIS"));
 const ROOT = path.join(__dirname, "..");
 const PREFERRED_PORT = 8787;
-const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".wasm": "application/wasm", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".ttf": "font/ttf", ".webmanifest": "application/manifest+json", ".md": "text/plain" };
+const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".wasm": "application/wasm", ".json": "application/json", ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png", ".ttf": "font/ttf", ".webmanifest": "application/manifest+json", ".md": "text/plain" };
 let server = null, backend = null, origin = "";
 
 function startServer() {
@@ -36,7 +38,7 @@ async function healthy() {
 }
 // Developer mode (running from a checkout that has backend/.venv): use that backend. Never bundled in installers.
 async function maybeStartDevBackend() {
-  if (app.isPackaged || process.env.NOESIS_FORCE_ENGINE === "1" || await healthy()) return false;
+  if (app.isPackaged || (process.env.ATOB_FORCE_ENGINE || process.env.NOESIS_FORCE_ENGINE) === "1" || await healthy()) return false;
   const bin = process.platform === "win32" ? path.join(ROOT, "backend", ".venv", "Scripts", "uvicorn.exe") : path.join(ROOT, "backend", ".venv", "bin", "uvicorn");
   if (!fs.existsSync(bin)) return false;
   backend = spawn(bin, ["app.main:app", "--host", "127.0.0.1", "--port", "8000"], { cwd: path.join(ROOT, "backend"), env: { ...process.env, SELECTOR_CORS_ORIGINS: origin }, stdio: "ignore", windowsHide: true });
@@ -69,7 +71,7 @@ function buildMenu() {
     { role: "editMenu" },
     { label: "View", submenu: [{ role: "reload" }, { role: "forceReload" }, { role: "toggleDevTools" }, { type: "separator" }, { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }, { type: "separator" }, { role: "togglefullscreen" }] },
     { role: "windowMenu" },
-    { label: "Help", submenu: [{ label: "Repair advanced analysis…", click: () => { engine.reset(); engine.stop(); runSetup(); } }, { label: "NOESIS on GitHub", click: () => shell.openExternal("https://github.com/PUNKPOZER/noesis") }] },
+    { label: "Help", submenu: [{ label: "Repair advanced analysis…", click: () => { engine.reset(); engine.stop(); runSetup(); } }, { label: "a.to.b on GitHub", click: () => shell.openExternal("https://github.com/PUNKPOZER/noesis") }] },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(tpl));
 }
@@ -78,7 +80,7 @@ async function createWindow() {
   const port = await startServer();
   origin = `http://127.0.0.1:${port}`;
   win = new BrowserWindow({
-    width: 1440, height: 900, minWidth: 900, minHeight: 600, backgroundColor: "#080909", title: "NOESIS", show: false,
+    width: 1440, height: 900, minWidth: 900, minHeight: 600, backgroundColor: "#060606", title: "a.to.b", show: false,
     icon: path.join(ROOT, "build", "icon.png"), autoHideMenuBar: process.platform !== "darwin",
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false },
   });
@@ -86,7 +88,7 @@ async function createWindow() {
   win.on("closed", () => { win = null; });
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url) && !url.startsWith(origin)) shell.openExternal(url); return { action: "deny" }; });
   win.webContents.on("will-navigate", (e, url) => { if (!url.startsWith(origin) && !url.startsWith("file:")) { e.preventDefault(); if (/^https?:/.test(url)) shell.openExternal(url); } });
-  win.webContents.on("did-fail-load", (_e, code, desc) => { if (code !== -3) dialog.showErrorBox("NOESIS", `Could not load the interface (${code} ${desc}).`); });
+  win.webContents.on("did-fail-load", (_e, code, desc) => { if (code !== -3) dialog.showErrorBox("a.to.b", `Could not load the interface (${code} ${desc}).`); });
 
   if (await maybeStartDevBackend()) return loadApp();
   if (!engine.supported()) return loadApp();           // e.g. Windows: no Essentia build -> local analysis only

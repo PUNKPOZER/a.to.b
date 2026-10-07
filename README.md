@@ -201,7 +201,7 @@ Waveform с цветной полосой секций (intro/verse/chorus/break
 ## Sharing with users (GitHub Pages)
 
 1. Push this repo to GitHub (`main` branch). `.github/workflows/pages.yml` tests, builds and deploys `dist/` on every push.
-2. In the repository: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The app appears at `https://punkpozer.github.io/noesis/`.
+2. In the repository: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The app appears at `https://punkpozer.github.io/a.to.b/`.
 3. Users open the link and drop their tracks: local analysis (Essentia.js + legacy DSP), library, similarity, sets, player all run **in their own browser**; audio and library stay on their machine.
 4. The advanced backend (Essentia Python, structure, embeddings) is **not** part of Pages. Users who want it run it locally (`./start.command` or `npm run dev`) and set `http://localhost:8000` in Settings; the backend allows `https://punkpozer.github.io` and localhost. For another site origin set `SELECTOR_CORS_ORIGINS`.
 5. Before making the repo public check: **ABC Areal** is git-ignored (not deployed; fallback font is used), **essentia.js is AGPL-3.0** and is served from `vendor/`, **Essentia models are CC BY-NC-SA 4.0 (non-commercial)** — see the licence notes above.
@@ -214,7 +214,7 @@ Ranking detail (`audio/genre-rank.js`): the displayed genre is the model's top s
 
 ## Desktop app (macOS / Windows)
 
-Download from **[Releases](https://github.com/PUNKPOZER/noesis/releases)**: `a.to.b-<version>-arm64.dmg` (Apple Silicon Mac) or `a.to.b Setup <version>.exe` (Windows). Open the .dmg and drag a.to.b to Applications.
+Download from **[Releases](https://github.com/PUNKPOZER/a.to.b/releases)**: `a.to.b-<version>-arm64.dmg` (Apple Silicon Mac) or `a.to.b Setup <version>.exe` (Windows). Open the .dmg and drag a.to.b to Applications.
 
 **Mac (Apple Silicon): the full version out of the box.** On the first launch a.to.b sets up its own analysis engine (progress screen, ~1.7 GB, a few minutes, internet needed once): Python 3.12 via the bundled `uv`, Essentia + TensorFlow, the All-In-One structure analyzer and the Discogs-EffNet model; ffmpeg is bundled. The engine lives in `~/Library/Application Support/a.to.b/engine` and starts and stops with the app (FastAPI on `127.0.0.1:8000`). Every later launch opens straight away. Help → *Repair advanced analysis…* reinstalls it. Everything runs locally; the music never leaves the computer.
 **Windows: the portable engine.** Essentia publishes no Windows build, so on Windows the engine runs *without* Essentia: on first launch a.to.b installs Python + ONNX Runtime and runs the **Discogs-EffNet model through the official ONNX export** (a numpy re-implementation of Essentia's mel front-end, verified against Essentia: embedding cosine 1.000000, activations within 1e-5). You get the same genres (400 Discogs styles), sonic similarity, "similar in my library", bridges and next-track modes as on the Mac. Not available on Windows: the whole-track Essentia analysis (BPM/key come from the in-browser Essentia.js on the first 90 s instead) and structure analysis (sections / downbeats; All-In-One needs Apple Silicon). The Windows build was compiled on GitHub but could not be run on a real Windows machine by the author — please report problems.

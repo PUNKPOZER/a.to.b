@@ -28,7 +28,7 @@
   },
   "main": "desktop/main.js",
   "author": "punk pozer",
-  "homepage": "https://github.com/PUNKPOZER/noesis",
+  "homepage": "https://github.com/PUNKPOZER/a.to.b",
   "build": {
     "appId": "com.punkpozer.atob",
     "productName": "a.to.b",

@@ -15,7 +15,7 @@ const SIM_WEIGHTS = DjEngine.SIM_WEIGHTS, DJ_WEIGHTS = DjEngine.DJ_WEIGHTS, KEY_
 const _shapeCache = new WeakMap();
 function trackToEngineShape(t) {
   let s = _shapeCache.get(t); if (s) return s;
-  const an = t.analysis || {}, st = an.structure && an.structure.status === "AVAILABLE" ? an.structure : null;
+  const an = t.analysis || {}, st = effectiveStructure(t);
   const bk = an.backend && an.backend.status === "AVAILABLE" ? an.backend : null;
   const grid = trackGrid(t);
   s = {
@@ -31,10 +31,11 @@ function trackToEngineShape(t) {
 }
 // bar grid of a track: analysed downbeats (All-In-One), else a constant-tempo grid from BPM + first beat (flagged "estimated"), else none
 function trackGrid(t) {
-  const an = t.analysis || {}, st = an.structure && an.structure.status === "AVAILABLE" ? an.structure : null;
-  if (t._grid !== undefined && t._gridSrc === st) return t._grid;
+  const an = t.analysis || {}, st = an.structure && an.structure.status === "AVAILABLE" ? an.structure : null, lg = localGridOf(t);
+  if (t._grid !== undefined && t._gridSrc === st && t._gridLocal === lg && t._gridShift === (lg ? lg.shift : 0)) return t._grid;
   let g = null;
   if (st && st.grid) { const d = Grid.decode(st.grid); if (d && d.length > 7) g = { downbeats: d, kind: "analyzed" }; }
+  if (!g && lg) { const d = Grid.decode(lg.grid); if (d && d.length > 7) { const bar = lg.barSeconds, sh = ((lg.shift || 0) % 4) * bar / 4; g = { downbeats: sh ? d.map((x) => Math.round((x + sh) * 1000) / 1000).filter((x) => x < t.durationSec - bar * 0.5) : d, kind: "local" }; } }
   if (!g) {
     const first = st && st.firstDownbeat != null ? st.firstDownbeat : an.backend && an.backend.status === "AVAILABLE" ? an.backend.bpm.firstBeatSec : null;
     const d = first != null ? Grid.synthesize(first, t.bpm, t.durationSec) : null;
@@ -42,7 +43,20 @@ function trackGrid(t) {
   }
   Object.defineProperty(t, "_grid", { value: g, writable: true, configurable: true, enumerable: false });
   Object.defineProperty(t, "_gridSrc", { value: st, writable: true, configurable: true, enumerable: false });
+  Object.defineProperty(t, "_gridLocal", { value: lg, writable: true, configurable: true, enumerable: false });
+  Object.defineProperty(t, "_gridShift", { value: lg ? lg.shift : 0, writable: true, configurable: true, enumerable: false });
   return g;
+}
+// grid measured in the browser (audio/local-grid.js): usable only while it was measured at the track's current BPM
+function localGridOf(t) { const lg = t.analysis && t.analysis.localGrid; return lg && lg.status === "AVAILABLE" && Math.abs(lg.bpm - t.bpm) < 0.05 ? lg : null; }
+// sections / bar info: All-In-One when the backend has analysed the track, else the local estimate
+function effectiveStructure(t) {
+  const an = t.analysis || {}, st = an.structure && an.structure.status === "AVAILABLE" ? an.structure : null; if (st) return st;
+  const lg = localGridOf(t); if (!lg) return null;
+  const segs = lg.segments || [], bar = lg.barSeconds, intro = segs[0] && segs[0].label === "intro" ? segs[0] : null, outro = segs.length && segs[segs.length - 1].label === "outro" ? segs[segs.length - 1] : null;
+  return { status: "AVAILABLE", local: true, analyzer: "local estimate", segments: segs, firstDownbeat: lg.firstDownbeat, barSeconds: bar, downbeatCount: lg.downbeatCount,
+    introDuration: intro ? Math.round((intro.end - intro.start) * 100) / 100 : null, outroDuration: outro ? Math.round((outro.end - outro.start) * 100) / 100 : null, introBars: intro ? Math.round((intro.end - intro.start) / bar) : null, outroBars: outro ? Math.round((outro.end - outro.start) / bar) : null,
+    majorTransitions: segs.slice(1).filter((s, i) => Math.abs(s.energyDb - segs[i].energyDb) >= 3).map((s) => Math.round(s.start * 100) / 100), breakdownPositions: segs.filter((s) => s.label === "break").map((s) => Math.round(s.start * 100) / 100) };
 }
 function genreStyles(t) {
   const ts = t.analysis && t.analysis.sonic && t.analysis.sonic.status === "AVAILABLE" && t.analysis.sonic.topStyles;

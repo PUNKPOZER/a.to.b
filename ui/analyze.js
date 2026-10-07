@@ -91,7 +91,7 @@ function trackPanel(tr) {
 function structureInfo(tr) { const st = structureOf(tr), an = tr.analysis || {}; return { st, why: an.structure && an.structure.reason, status: an.structure && an.structure.status }; }
 function waveBlock(tr, { legend = true } = {}) {
   const { st, status } = structureInfo(tr);
-  const src = st ? `${t("wave.structure")} · ${UI.esc(st.analyzer)}` : status === "UNAVAILABLE" ? t("wave.structureUnavailable") : t("wave.structureNone");
+  const src = st ? `${t("wave.structure")} · ${UI.esc(st.local ? t("structure.localName") : st.analyzer)}` : status === "UNAVAILABLE" ? t("wave.structureUnavailable") : t("wave.structureNone");
   return `<div class="wavepanel"><div class="wave-top"><span class="src">${src}${UI.help("structure")}</span>
       ${UI.seg([["mono", t("wave.mono")], ["spectral", t("wave.spectral")]], state.waveStyle, "data-wstyle")}</div>
     ${tr.waveform ? `<canvas class="wave" id="tabWave" data-kind="main" aria-label="${UI.esc(t("wave.aria"))}"></canvas>` : `<div class="empty">${t("wave.none")}</div>`}
@@ -151,7 +151,7 @@ function tabStructure(tr) {
   if (!st) return `${waveBlock(tr)}<div class="empty"><b>${t("structure.noneTitle")}</b>${UI.esc(why ? t("structure.reason", { r: why }) : t("structure.noneText"))}${status === undefined || status === "ERROR" ? `<div style="margin-top:12px"><button class="btn" data-stage="structure">${t("structure.run")}</button></div>` : ""}</div>`;
   const n = (v, u = "") => (v == null ? NA : v + u), g = trackGrid(tr);
   return `${waveBlock(tr)}
-    ${UI.sectionHead(t("structure.dj"), UI.esc(st.analyzer))}
+    ${UI.sectionHead(t("structure.dj"), UI.esc(st.local ? t("structure.localName") : st.analyzer))}
     <dl class="kv"><dt>${t("structure.firstDownbeat")}</dt><dd class="num">${n(st.firstDownbeat, " s")}</dd><dt>${t("structure.barLength")}</dt><dd class="num">${n(st.barSeconds, " s")} · ${t("structure.bars", { n: st.downbeatCount })}</dd>
       <dt>${t("structure.gridKind")}</dt><dd>${g ? t("grid." + g.kind) : NA}${UI.help("grid")}</dd>
       <dt>${t("structure.intro")}</dt><dd>${n(st.introDuration, " s")} (${n(st.introBars)} ${t("unit.bars")}) <span class="faint">${t("structure.onlyLabelled")}</span></dd>

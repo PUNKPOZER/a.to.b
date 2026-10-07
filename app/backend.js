@@ -257,7 +257,7 @@ async function getAudioBlob(id) { return sessionFiles.get(id) || (await AudioSto
 // Give an existing track its audio + waveform (+ backend analysis). Used when a track was analysed
 // before audio storage existed, or analysed in another browser profile.
 async function upgradeTrackAudio(t, file) {
-  keepAudio(t.id, file);
+  keepAudio(t.id, file); if (typeof gridJobs !== "undefined") gridJobs.skip.delete(t.id);
   if (!t.waveform) {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     try {

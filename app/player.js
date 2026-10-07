@@ -5,7 +5,7 @@ player.audio.volume = 0.9;
 const waveCanvases = new Map(); // canvas element -> track id
 
 function trackWaveform(id) { const t = findTrack(id); return t && t.waveform ? Waveform.decode(t.waveform) : null; }
-function structureOf(t) { const st = t && t.analysis && t.analysis.structure; return st && st.status === "AVAILABLE" && st.segments ? st : null; }
+function structureOf(t) { const st = t && effectiveStructure(t); return st && st.segments && st.segments.length ? st : null; }
 
 // draw options per canvas kind: the main waveform carries section labels + timestamps, small ones only a thin strip
 function waveOpts(canvas, id) {

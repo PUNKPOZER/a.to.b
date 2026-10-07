@@ -68,6 +68,7 @@ function renderSetBuilderView(root) {
   const analysis = tracks.length > 1 ? SetTools.analyzeSet(S, trans.map((x) => x.compat), { curvePts: b.pts, similarities: tracks.slice(1).map((x, i) => { const so = sonicScore(tracks[i], x); return so ? so.overall : computeSimilarity(S[i], S[i + 1], state.weights.sim, KEY_WEIGHTS).overall; }) }) : null;
   if (transitionCache.computations !== before && !sbNote) sbNote = t("sb.recalc", { n: transitionCache.computations - before, total: Math.max(0, tracks.length - 1) });
   const curves = Object.entries(DjEngine.CURVES);
+  const gridNote = gridBusy() ? t("sb.gridProgress", { n: Math.min(gridJobs.done + 1, gridJobs.total), total: gridJobs.total }) : "";
   root.innerHTML = `<div class="sb" id="sbRoot"><div class="col">${cratePanel()}${nextPanel(tracks)}</div><div class="col">
     <section class="panel"><div class="hd"><div><h1>${t("sb.title")}</h1><div class="mono dim" style="margin-top:6px">${UI.esc(cur().name)}${cur().id ? "" : " · " + t("sb.unsaved")}</div></div>
       <div class="toolbar"><button class="btn" id="sbRename">${t("common.rename")}</button><button class="btn" id="sbNew">${t("sb.newSet")}</button><button class="btn primary" id="sbSave">${t("sb.save")}</button><button class="btn" id="sbExport" ${tracks.length ? "" : "disabled"}>${UI.icon("download")}${t("sb.export")}</button></div></div>
@@ -81,9 +82,10 @@ function renderSetBuilderView(root) {
       <label style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text-2);margin-bottom:12px"><input type="checkbox" id="sbKeep" ${b.keepFirst ? "checked" : ""} style="width:auto"> ${t("sb.keepFirst")}</label>
       <div class="curvebox"><div style="display:flex;justify-content:space-between;margin-bottom:6px;gap:12px;flex-wrap:wrap"><span class="label">${t("sb.energyLegend")}</span><span class="mono faint">${t("sb.dragPoints")}</span></div>${curveSvg(tracks)}</div>
       ${tracks.length ? setStatsHtml(tracks, analysis) : ""}</section>
-    <section class="panel"><div class="panel-head"><h2>${t("sb.sequence")}</h2><span class="mono faint" id="sbNote" aria-live="polite">${UI.esc(sbNote)}</span></div>
+    <section class="panel"><div class="panel-head"><h2>${t("sb.sequence")}</h2><span class="mono faint" id="sbNote" aria-live="polite">${UI.esc(gridNote || sbNote)}</span></div>
       ${tracks.length ? `${seqHeader()}<div class="seq" id="seq" role="list" aria-label="${UI.esc(t("sb.sequence"))}">${tracks.map((x, i) => nodeHtml(x, i, tracks) + (i < tracks.length - 1 ? linkHtml(x, tracks[i + 1], trans[i], i) : "")).join("")}</div>` : `<div class="empty"><b>${t("sb.emptyTitle")}</b>${t("sb.emptyText")}</div>`}</section></div></div>`;
   sbNote = "";
+  if (tracks.length > 1) prepareSetGrids();   // measure the missing bar grids in the background
 }
 function setStatsHtml(tracks, an) {
   const bpms = tracks.map((x) => x.bpm), sc = an && an.score;
@@ -112,6 +114,14 @@ function nodeHtml(tr, i, tracks) {
       <button class="iconbtn" data-alt="${i}" aria-label="${UI.esc(t("sb.findAlt"))}" data-tip="${UI.esc(t("sb.findAlt"))}">${UI.icon("swap")}</button>
       <button class="iconbtn" data-nodemore="${i}" aria-label="${UI.esc(t("common.more"))}">${UI.icon("more")}</button></div></div>`;
 }
+// no bar grid yet: measured from the audio on demand (and automatically in the background)
+function noGridPill(a, b, key) {
+  const busy = gridState(a.id) !== "idle" || gridState(b.id) !== "idle", miss = [a, b].find((x) => !hasAudio(x));
+  const inner = (title, sub) => `<span class="ti">${UI.icon("swap")}</span><span class="tmain"><b>${title}</b><span>${sub}</span></span>`;
+  if (busy) return `<span class="tpill none run">${inner(t("sb.preparing"), t("sb.preparingSub"))}</span>`;
+  if (miss) return `<button class="tpill none" data-attach="${miss.id}" data-tip="${UI.esc(t("sb.needAudioTip"))}">${inner(t("sb.needAudio"), UI.esc(miss.title))}</button>`;
+  return `<button class="tpill none ready" data-prepare="${key}" data-tip="${UI.esc(t("sb.prepareTip"))}">${inner(t("sb.prepare"), t("sb.prepareSub"))}</button>`;
+}
 function seqHeader() { return `<div class="seqhead"><span></span><span>#</span><span>${t("col.track")}</span><span class="c">BPM</span><span class="c">${t("col.key")}</span><span class="c">${t("chip.energy")}</span><span class="c">${t("sb.time")}</span><span class="c rolecell">${t("sb.role")}</span><span></span></div>`; }
 // the transition between two tracks: where to mix out of A, where to come in on B, how long, what kind — and a button to listen to it
 function linkHtml(a, b, tr, i) {
@@ -122,7 +132,7 @@ function linkHtml(a, b, tr, i) {
         <span class="tpos"><span><i>${t("guide.mixOut")}</i> ${fmtTime(g.mixOut.time)}${sec(g.mixOut) ? " · " + UI.esc(sec(g.mixOut)) : ""}</span><span><i>${t("guide.mixIn")}</i> ${fmtTime(g.mixIn.time)}${sec(g.mixIn) ? " · " + UI.esc(sec(g.mixIn)) : ""}</span></span></button>
       <button class="btn sm" data-guide="${key}" data-autoplay="1">${UI.icon("play")}${t("sb.listen")}</button>
       ${g.estimated ? `<span class="badge medium" data-tip="${UI.esc(t("guide.estimatedTip"))}">${t("guide.estimated")}</span>` : ""}${g.manual ? `<span class="badge">${t("common.manual")}</span>` : ""}`
-    : `<span class="tpill none" data-tip="${UI.esc(t("guide.noGridTip"))}"><span class="ti">${UI.icon("swap")}</span><span class="tmain"><b>${t("sb.transition")}</b><span>${t("guide.noGrid")}</span></span></span>`;
+    : noGridPill(a, b, key);
   return `<div class="tblock"><div></div><div class="rail"></div><div class="body">${main}
     <button class="sc scoretag" data-toggle-link="${key}" aria-expanded="${open}" style="background:none;border:none;color:inherit"><b class="${UI.tone(d.overall)} num">${UI.pct(d.overall)}</b><span>${t("score.djShort")}</span></button>
     ${confidenceBadge(d.confidence)}
@@ -300,6 +310,8 @@ document.addEventListener("click", async (e) => {
   if (e.target.closest("#sbReroll")) { buildSetNow(true); return; }
   if (e.target.closest("#sbOptimize")) { optimizeNow(); return; }
   const tg = e.target.closest("[data-toggle-link]"); if (tg) { const k = tg.dataset.toggleLink; expandedLinks.has(k) ? expandedLinks.delete(k) : expandedLinks.add(k); renderActiveView(); return; }
+  const pp = e.target.closest("[data-prepare]"); if (pp) { const [a, b] = pp.dataset.prepare.split("|"); gridJobs.skip.delete(a); gridJobs.skip.delete(b); prepareGrids([a, b]); renderActiveView(); return; }
+  const at = e.target.closest("[data-attach]"); if (at) { attachAudioPicker(at.dataset.attach); return; }
   const lk = e.target.closest("[data-lock]"); if (lk) { const id = lk.dataset.lock; cur().locked = isLocked(id) ? cur().locked.filter((x) => x !== id) : [...cur().locked, id]; saveSet(); renderActiveView(); return; }
   const alt = e.target.closest("[data-alt]"); if (alt) { showAlternatives(+alt.dataset.alt); return; }
   const br = e.target.closest("[data-bridge]"); if (br) { showFindBridge(+br.dataset.bridge); return; }

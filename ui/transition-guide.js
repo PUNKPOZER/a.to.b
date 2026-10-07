@@ -38,6 +38,7 @@ function renderGuide(dlg) {
     <div class="guide-wave"><div class="gl"><span class="mono dim">A · ${UI.esc(A.title)}</span><span class="mono">${t("guide.mixOut")} ${posText(g.mixOut)}</span></div><canvas id="gwA" data-side="a" aria-label="${UI.esc(t("guide.waveA"))}"></canvas><i class="ghead" id="ghA"></i></div>
     <div class="guide-wave"><div class="gl"><span class="mono dim">B · ${UI.esc(B.title)}</span><span class="mono">${t("guide.mixIn")} ${posText(g.mixIn)}</span></div><canvas id="gwB" data-side="b" aria-label="${UI.esc(t("guide.waveB"))}"></canvas><i class="ghead" id="ghB"></i></div>
     <div class="mono faint" style="text-align:center;margin-bottom:12px">${t("guide.dragHint")}</div>
+    ${shiftBlock(A, B)}
     <div class="gcols"><div class="gcol"><div class="label">${t("guide.mixOut")}</div><div class="t">${fmtTime(g.mixOut.time)}</div><div class="dim" style="font-size:12px;margin-top:4px">${posText(g.mixOut)}</div>
         <div class="toolbar" style="margin-top:10px"><button class="btn sm" data-gplay="a">${UI.icon("play")}${t("guide.playFrom")}</button></div></div>
       <div class="gcol"><div class="label">${t("guide.mixIn")}</div><div class="t">${fmtTime(g.mixIn.time)}</div><div class="dim" style="font-size:12px;margin-top:4px">${posText(g.mixIn)}</div>
@@ -48,6 +49,12 @@ function renderGuide(dlg) {
     ${UI.sectionHead(t("guide.type") + ": " + t("ttype." + g.type.key), "")}<ul class="why">${reasonList(g.type.reasons, "twhy")}<li class="none">${UI.esc(t("mixout." + g.mixOutWhy))}</li></ul>
     ${compatBlock(d)}`;
   requestAnimationFrame(() => drawGuide(A, B, g));
+}
+// a grid measured locally can have its bar line on the wrong beat: let the user shift it by one beat
+function shiftBlock(A, B) {
+  const row = (tr, side) => { const lg = localGridOf(tr); return lg ? `<button class="btn sm" data-gshift="${side}" data-tip="${UI.esc(t("guide.shiftTip"))}">${t("guide.shift", { s: side.toUpperCase(), n: lg.shift || 0 })}</button>` : ""; };
+  const a = row(A, "a"), b = row(B, "b"); if (!a && !b) return "";
+  return `<div class="toolbar" style="margin-bottom:12px"><span class="mono faint">${t("guide.gridLocalNote")}</span>${a}${b}</div>`;
 }
 const sectionLine = (p) => (p ? [p.section ? secLabel(p.section) : null, p.bar ? t("guide.bar", { n: p.bar }) : null, fmtTime(p.time)].filter(Boolean).join(" · ") : UI.NA);
 // every labelled section of the track is a place to mix out of / into; the current choice is highlighted
@@ -163,6 +170,7 @@ async function playTransition() {
 document.addEventListener("click", (e) => {
   if (!guideState || !e.target.closest("#modalRoot")) return;
   if (e.target.closest("#gPlay")) { playTransition(); return; }
+  const sh = e.target.closest("[data-gshift]"); if (sh) { const tr = findTrack(sh.dataset.gshift === "a" ? guideState.a : guideState.b), lg = tr.analysis.localGrid; lg.shift = ((lg.shift || 0) + 1) % 4; touchTrack(tr.id); stopTransition(); persistLibrary(); renderGuide(); if (state.tab === "setbuilder") renderActiveView(); return; }
   const go = e.target.closest("[data-gout]"), gi = e.target.closest("[data-gin]");
   if (go || gi) {
     const A = findTrack(guideState.a), B = findTrack(guideState.b), tr = go ? A : B, st = structureOf(tr), seg = st && st.segments[+(go || gi).dataset[go ? "gout" : "gin"]]; if (!seg) return;

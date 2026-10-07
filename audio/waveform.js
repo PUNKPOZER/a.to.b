@@ -76,7 +76,7 @@
 
   // structure colours are informational: intro blue, verse violet, chorus coral, break/bridge amber, outro green
   const SECTION_COLORS = { intro: "#6b93ff", verse: "#a487ff", chorus: "#ff6f5e", break: "#e8b64a", bridge: "#e8b64a",
-    inst: "#7d8aa8", solo: "#c4a8ff", outro: "#5fd08a", start: "#555", end: "#555" };
+    inst: "#7d8aa8", solo: "#c4a8ff", outro: "#5fd08a", start: "#555", end: "#555", high: "#ff8a6b", low: "#8b93a8" };
 
   function fmt(t) { const m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ":" + String(s).padStart(2, "0"); }
 

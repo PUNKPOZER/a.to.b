@@ -114,7 +114,7 @@
     if (compat && compat.key != null && compat.key < 60) L = Math.min(L, 8);
     // --- mix in at B's first downbeat unless the drop-swap variant moves it
     let mixInIdx = 0;
-    const chorus = segsB.find((s, i) => s.label === "chorus" && i > 0);
+    const chorus = segsB.find((s, i) => (s.label === "chorus" || s.label === "high") && i > 0);
     let firstChorus = null;
     if (chorus && introSeg) { const prev = segsB[segsB.indexOf(chorus) - 1]; if (prev && prev.energyDb != null && chorus.energyDb != null) firstChorus = { start: chorus.start, jumpDb: chorus.energyDb - prev.energyDb }; }
     const outSec = sectionAt(A.segments, mixOutT);

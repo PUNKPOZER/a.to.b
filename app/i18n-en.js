@@ -96,7 +96,7 @@ const I18N_EN = {
   "alt.title": "Find alternative", "alt.intro": "Replacement for {name}, scored against both neighbours.", "alt.noPrev": "(no track before)", "alt.noNext": "(no track after)", "alt.energyFit": "energy fit", "alt.replace": "Replace", "alt.replaced": "Track replaced", "alt.none": "No other tracks to try.",
   "bridge.title": "Find a bridge", "bridge.intro": "Between {a} and {b}: compatible with both.", "bridge.between": "Also sitting between them in sonic space.", "bridge.betweenPct": "between {n}%", "bridge.insert": "Insert", "bridge.inserted": "Bridge inserted", "bridge.none": "No other tracks in the library to use as a bridge.",
   // transition guide
-  "guide.title": "Transition guide", "guide.open": "Open the transition guide", "guide.cut": "cut", "guide.noGrid": "no bar grid", "guide.noGridTip": "Run structure analysis (or Essentia) for this pair so a mix point can be calculated", "guide.unavailable": "No mix point can be calculated",
+  "guide.title": "Transition guide", "guide.open": "Open the transition guide", "guide.cut": "cut", "guide.unavailable": "No mix point can be calculated",
   "guide.reason.noGrid": "At least one of the two tracks has no bar grid. Run structure analysis on both (it needs the backend).", "guide.reason.gridTooShort": "The bar grid of one of the tracks is too short to place a mix point.",
   "guide.estimated": "estimated grid", "guide.estimatedTip": "At least one track has no measured bar grid: it is built from BPM + first beat and assumes a constant tempo.", "guide.confidence": "Confidence", "guide.tempoDiff": "tempo Δ {n}%",
   "guide.waveA": "Track A around the mix-out point", "guide.waveB": "Track B around the mix-in point", "guide.mixOut": "Mix out", "guide.mixIn": "Mix in", "guide.bar": "bar {n}", "guide.phrase": "phrase {n}.{b}", "guide.dragHint": "Click or drag on a waveform to move a mix point — it snaps to the bar grid.",
@@ -161,5 +161,9 @@ const I18N_EN = {
   "help.expbase": "Rekordbox needs the full path of each file. The browser only knows names, so enter the folder you imported the music from.",
   "guide.summaryTitle": "Mix point", "guide.play": "Listen to the transition", "guide.stop": "Stop", "guide.playHint": "Plays A up to the mix-out, then B comes in over the overlap.", "guide.loading": "loading audio…", "guide.playingNote": "B is matched to A's tempo (Δ{a}%). About {n} s.",
   "guide.whereOut": "Mix out of A at", "guide.whereIn": "Mix into B at", "guide.noSections": "no section labels — run structure analysis",
-  "sb.listen": "Listen", "sb.transition": "Transition", "sb.time": "Time", "sb.role": "Role",
+  "sb.listen": "Listen", "sb.time": "Time", "sb.role": "Role",
+  "section.high": "high energy", "section.low": "low energy", "grid.local": "estimated locally (kick onsets vs. BPM)", "structure.localName": "local estimate",
+  "sb.prepare": "Prepare transition", "sb.prepareSub": "measure the bar grid from the audio", "sb.prepareTip": "Finds the beat and bar lines of both tracks in your browser (no backend needed). Then you can see and listen to the mix point.", "sb.preparing": "Preparing…", "sb.preparingSub": "measuring the bar grid", "sb.needAudio": "Attach the audio file", "sb.needAudioTip": "This track's audio is not stored in the app. Choose the file again.", "sb.gridProgress": "measuring bar grids {n}/{total}",
+  "guide.shift": "Shift bar line {s} (+1 beat, now {n})", "guide.shiftTip": "If the bar line is not on the first beat of the bar, move it by one beat.", "guide.gridLocalNote": "Grid measured locally from the kicks — an estimate.",
+  "toast.gridFail": "Could not measure the grid of {name}",
 };

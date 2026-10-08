@@ -60,7 +60,7 @@ external provider would live on the server only. Library and sets stay in this b
 
 ## Versions
 
-App `0.5.0`, analysis version `6`. Stored tracks keep the version they were analysed with (Settings shows how many are older); nothing is silently re-analysed.
+App `0.5.1`, analysis version `6`. Stored tracks keep the version they were analysed with (Settings shows how many are older); nothing is silently re-analysed.
 Embeddings record model + version; outdated ones are flagged and recomputed on request.
 
 ## Limitations

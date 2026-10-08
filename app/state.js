@@ -7,7 +7,7 @@ const LS_UI_OLD = "noesis_ui";
 const LS_CURRENT = "atob_current_set";
 const LS_CRATE = "atob_crate";
 const UNKNOWN_ARTIST = "Unknown artist";  // stored value; shown translated via dispArtist()
-const APP_VERSION = "0.5.0";
+const APP_VERSION = "0.5.1";
 const ANALYSIS_VERSION = 6;       // bump when stored analysis fields change shape; older tracks are migrated, never silently re-analysed
 
 /* ---- engine glue: the similarity / compatibility engine lives in audio/dj-engine.js ---- */

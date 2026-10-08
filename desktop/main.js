@@ -15,10 +15,52 @@ const PREFERRED_PORT = 8787;
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".wasm": "application/wasm", ".json": "application/json", ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png", ".ttf": "font/ttf", ".webmanifest": "application/manifest+json", ".md": "text/plain" };
 let server = null, backend = null, origin = "";
 
+/* ---- music folder: the app reads audio straight from the folder you pick (no copies in the browser storage) ---- */
+const AUDIO_EXT = /\.(mp3|wav|aiff?|flac|m4a)$/i;
+const settingsFile = () => path.join(app.getPath("userData"), "atob-settings.json");
+function readSettings() { try { return JSON.parse(fs.readFileSync(settingsFile(), "utf8")); } catch (e) { return {}; } }
+function writeSettings(s) { try { fs.writeFileSync(settingsFile(), JSON.stringify(s, null, 2)); } catch (e) {} }
+let libraryDir = readSettings().libraryDir || null;
+if (libraryDir && !fs.existsSync(libraryDir)) libraryDir = null;
+function walk(dir, root, out) {
+  let ents; try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return; }
+  for (const e of ents) {
+    if (out.length >= 30000) return;
+    if (e.name.startsWith(".")) continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) walk(p, root, out);
+    else if (AUDIO_EXT.test(e.name)) { try { const st = fs.statSync(p); out.push({ rel: path.relative(root, p).split(path.sep).join("/"), path: p, size: st.size, mtimeMs: st.mtimeMs }); } catch (er) {} }
+  }
+}
+// serves files below the chosen folder only, with Range support so the audio element can seek without loading the whole file
+function serveLibrary(req, res, relPath) {
+  if (!libraryDir) { res.writeHead(404).end(); return; }
+  const file = path.normalize(path.join(libraryDir, relPath));
+  if (!file.startsWith(libraryDir + path.sep) || !AUDIO_EXT.test(file)) { res.writeHead(403).end(); return; }
+  fs.stat(file, (err, st) => {
+    if (err || !st.isFile()) { res.writeHead(404).end(); return; }
+    const m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || ""), type = { ".mp3": "audio/mpeg", ".wav": "audio/wav", ".flac": "audio/flac", ".m4a": "audio/mp4", ".aif": "audio/aiff", ".aiff": "audio/aiff" }[path.extname(file).toLowerCase()] || "application/octet-stream";
+    if (m) {
+      const start = m[1] ? +m[1] : 0, end = m[2] ? Math.min(+m[2], st.size - 1) : st.size - 1;
+      res.writeHead(206, { "Content-Type": type, "Accept-Ranges": "bytes", "Content-Range": `bytes ${start}-${end}/${st.size}`, "Content-Length": end - start + 1 });
+      fs.createReadStream(file, { start, end }).pipe(res);
+    } else { res.writeHead(200, { "Content-Type": type, "Accept-Ranges": "bytes", "Content-Length": st.size }); fs.createReadStream(file).pipe(res); }
+  });
+}
+ipcMain.handle("library:get", () => ({ dir: libraryDir }));
+ipcMain.handle("library:pick", async () => {
+  const r = await dialog.showOpenDialog(win, { properties: ["openDirectory"], title: "a.to.b — music folder" });
+  if (r.canceled || !r.filePaths[0]) return { dir: libraryDir, canceled: true };
+  libraryDir = path.normalize(r.filePaths[0]); writeSettings({ ...readSettings(), libraryDir }); return { dir: libraryDir };
+});
+ipcMain.handle("library:clear", () => { libraryDir = null; const s = readSettings(); delete s.libraryDir; writeSettings(s); return { dir: null }; });
+ipcMain.handle("library:scan", () => { const out = []; if (libraryDir) walk(libraryDir, libraryDir, out); return { dir: libraryDir, files: out }; });
+
 function startServer() {
   return new Promise((resolve, reject) => {
     server = http.createServer((req, res) => {
       let p = decodeURIComponent(new URL(req.url, "http://x").pathname);
+      if (p.startsWith("/__lib/")) { serveLibrary(req, res, p.slice(7)); return; }
       if (p.endsWith("/")) p += "index.html";
       const file = path.normalize(path.join(ROOT, p));
       if (!file.startsWith(ROOT + path.sep) || /(^|[\\/])(node_modules|backend|structure|desktop|build|\.git)([\\/]|$)/.test(path.relative(ROOT, file))) { res.writeHead(403).end(); return; }

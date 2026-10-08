@@ -62,6 +62,7 @@ function renderSettingsView(root) {
       <section class="panel"><h2 style="margin:0 0 12px;font-size:17px">${t("set.backend")}</h2><p class="dim" style="margin:0 0 12px">${t("set.backendText")}</p>
         <input id="apiUrlInput" placeholder="http://localhost:8000" value="${UI.esc(url || "http://localhost:8000")}" style="margin-bottom:12px">
         <div class="toolbar"><button class="btn primary" id="apiSave">${t("set.saveTest")}</button><button class="btn" id="apiClear">${t("common.clear")}</button></div><div class="mono dim" id="apiStatus" style="margin-top:12px">${info ? backendLine(info) : ""}</div></section>
+      <section class="panel"><h2 style="margin:0 0 12px;font-size:17px">${t("set.autoAdvanced")}</h2><p class="dim" style="margin:0 0 12px">${t("set.autoAdvancedText")}</p><label style="display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="autoAdv" ${state.ui.autoAdvanced ? "checked" : ""} style="width:auto"> ${t("set.autoAdvancedOn")}</label></section>
       <section class="panel"><h2 style="margin:0 0 12px;font-size:17px">${t("set.embeddings")}</h2><p class="dim" style="margin:0 0 12px">${t("set.embeddingsText")}</p>
         <div class="mono dim">${t("set.embStatus", { ok, total: state.library.length, missing, stale })}${info && info.sonic ? `<br>${t("set.backendModel")}: ${UI.esc(info.sonic.model)} v${UI.esc(info.sonic.modelVersion)}` : `<br><span style="color:var(--error)">${t("status.offline")}</span>`}</div>
         <div class="toolbar" style="margin-top:12px"><button class="btn" id="sonicCompute">${t("set.computeMissing")}</button><button class="btn" id="sonicRecal" data-tip="${UI.esc(t("set.recalTip"))}">${t("set.recalibrate")}</button></div></section>
@@ -106,7 +107,7 @@ document.addEventListener("click", async (e) => {
     if (!(await askConfirm(t("set.clearAsk"), t("set.clearAllOk")))) return;
     stopPlayer(); AudioStore.clear(); sessionFiles.clear();
     state.library = []; state.sets = []; state.currentSet = newSet(); state.crate = []; state.currentTrackId = null; state.queue = []; state.selected.clear();
-    transitionCache.invalidate(); persistLibrary(); persistSets(); persistCurrentSet(); persistCrate(); invalidateSonic(); renderActiveView(); toast(t("set.cleared"));
+    invalidateTransitions(); persistLibrary(); persistSets(); persistCurrentSet(); persistCrate(); invalidateSonic(); renderActiveView(); toast(t("set.cleared"));
   }
 });
-document.addEventListener("change", (e) => { if (e.target.id === "onbSkip") { state.ui.onboardingSkip = e.target.checked; persistUi(); } });
+document.addEventListener("change", (e) => { if (e.target.id === "autoAdv") { state.ui.autoAdvanced = e.target.checked; persistUi(); } if (e.target.id === "onbSkip") { state.ui.onboardingSkip = e.target.checked; persistUi(); } });

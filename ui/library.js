@@ -25,7 +25,7 @@ function renderLibraryView(root) {
       <div class="toolbar"><label class="lab" style="display:flex;gap:8px;align-items:center;grid-auto-flow:column">${t("lib.compareWith")}${UI.help("compare")}
         <select id="libRefSel" style="width:220px"><option value="">${t("lib.none")}</option>${state.library.map((x) => `<option value="${x.id}" ${x.id === state.libRef ? "selected" : ""}>${UI.esc(x.title.slice(0, 40))}</option>`).join("")}</select></label>
       <button class="btn" data-pick-files>${UI.icon("plus")}${t("import.chooseFiles")}</button></div></div>
-    <div class="filters" style="margin-top:16px">
+    ${libFolderPanel()}<div class="filters" style="margin-top:16px">
       <label>${t("lib.search")}<input type="search" id="fQuery" value="${UI.esc(f.query)}" placeholder="${UI.esc(t("lib.searchPh"))}"></label>
       <label>BPM ${t("lib.min")}<input type="number" id="fBpmMin" value="${num(f.bpmMin)}"></label><label>BPM ${t("lib.max")}<input type="number" id="fBpmMax" value="${num(f.bpmMax)}"></label>
       <label>${t("metric.energy")} ${t("lib.min")}<input type="number" id="fEnergyMin" value="${num(f.energyMin)}"></label><label>${t("metric.energy")} ${t("lib.max")}<input type="number" id="fEnergyMax" value="${num(f.energyMax)}"></label>
@@ -49,7 +49,7 @@ function renderLibraryTable() {
   document.getElementById("libCount").textContent = t("lib.count", { n: rows.length, total: state.library.length }) + (filtersActive() ? " · " + t("lib.filtered") : "");
   const arrow = (k) => (state.sort.key === k ? (state.sort.dir > 0 ? " ↑" : " ↓") : "");
   const allSel = rows.length && rows.every((r) => sel.has(r.t.id));
-  wrap.innerHTML = `${sel.size ? `<div class="toolbar" style="padding:10px 0;margin-top:12px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)"><span class="label">${t("lib.selected", { n: sel.size })}</span><button class="btn sm" id="selAddTo">${t("add.to")}</button><button class="btn sm" id="selEmbed">${t("lib.computeEmbeddings")}</button><button class="btn sm danger" id="selDelete">${t("common.delete")}</button><button class="linkbtn" id="selClear" style="margin-left:auto">${t("common.clear")}</button></div>` : ""}
+  wrap.innerHTML = `${sel.size ? `<div class="toolbar" style="padding:10px 0;margin-top:12px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)"><span class="label">${t("lib.selected", { n: sel.size })}</span><button class="btn sm" id="selAddTo">${t("add.to")}</button><button class="btn sm" id="selAdvanced">${t("lib.runAdvanced")}</button><button class="btn sm" id="selEmbed">${t("lib.computeEmbeddings")}</button><button class="btn sm danger" id="selDelete">${t("common.delete")}</button><button class="linkbtn" id="selClear" style="margin-left:auto">${t("common.clear")}</button></div>` : ""}
     ${state.library.length ? `<div style="overflow-x:auto"><table class="t" aria-label="${UI.esc(t("lib.title"))}" style="margin-top:8px"><thead><tr>
       <th style="width:28px"><input type="checkbox" id="selAll" aria-label="${UI.esc(t("lib.selectAll"))}" ${allSel ? "checked" : ""} style="width:auto"></th>
       ${LIB_COLS.map((k) => `<th class="sortable" data-sort="${k}" aria-sort="${state.sort.key === k ? (state.sort.dir > 0 ? "ascending" : "descending") : "none"}">${t("col." + k)}${arrow(k)}</th>`).join("")}<th></th></tr></thead>
@@ -72,6 +72,7 @@ document.addEventListener("click", (e) => {
   const cb = e.target.closest("[data-sel]"); if (cb) { e.stopPropagation(); state.selected.has(cb.dataset.sel) ? state.selected.delete(cb.dataset.sel) : state.selected.add(cb.dataset.sel); renderLibraryTable(); return; }
   if (e.target.closest("#selClear")) { state.selected.clear(); renderLibraryTable(); return; }
   if (e.target.closest("#selAddTo")) { addToMenu(e.target.closest("#selAddTo"), [...state.selected]); return; }
+  if (e.target.closest("#selAdvanced")) { [...state.selected].forEach((id) => { advChain = advChain.then(() => runAdvanced(id)).catch(() => {}); }); toast(t("lib.advancedQueued")); return; }
   if (e.target.closest("#selEmbed")) { [...state.selected].forEach((id) => { const tr = findTrack(id); if (tr && tr.analysis && (!sonicIdOf(tr) || sonicStale(tr))) runSonicOnly(id); }); toast(t("lib.embeddingsQueued")); return; }
   if (e.target.closest("#selDelete")) { (async () => { if (!(await askConfirm(t("lib.deleteAsk", { n: state.selected.size }), t("common.delete")))) return; [...state.selected].forEach(removeTrackEverywhere); state.selected.clear(); persistLibrary(); persistSets(); persistCurrentSet(); persistCrate(); invalidateSonic(); renderActiveView(); })(); return; }
   const more = e.target.closest("[data-rowmore]"); if (more) { e.stopPropagation(); trackMoreMenu(more, more.dataset.rowmore); return; }

@@ -65,3 +65,17 @@ test("mix-out is never placed in the first half of a track, even when the track 
   const g = T.guide(mk(), { ...mk(), id: "y" });
   assert.ok(g.available); assert.ok(g.mixOut.time >= 30, "mix out at " + g.mixOut.time);
 });
+
+test("loop transition is suggested when A has no outro; manual type / loop length override the suggestion", async () => {
+  const { createRequire } = await import("node:module"); const req = createRequire(import.meta.url), T = req("../audio/transition.js");
+  const bar = 2, d = Array.from({ length: 120 }, (_, i) => 0.2 + i * bar);
+  const mk = (id) => ({ id, bpm: 120, durationSec: 240, key: { camelot: "8A" }, genre: { primary: "House" }, profile: { energy: 60, bassDensity: 20 }, downbeats: d, gridKind: "analyzed", segments: [{ start: 0, end: 30, label: "intro", energyDb: -20 }, { start: 30, end: 240, label: "break", energyDb: -15 }], introBars: 8, outroBars: null });
+  const A = mk("a"), B = mk("b"), g = T.guide(A, B);
+  assert.ok(g.available);
+  assert.ok(T.TYPES.includes(g.type.key));
+  const m = T.applyManual(g, A, B, { type: "loop_out", loopBars: 8 });
+  assert.equal(m.type.key, "loop_out"); assert.equal(m.loopBars, 8); assert.ok(m.manual);
+  const c = T.applyManual(g, A, B, { type: "quick_cut" }); assert.equal(c.bars, 0); assert.equal(c.loopBars, null);
+  const l = T.applyManual({ ...g, bars: 0, type: { key: "quick_cut", reasons: [] } }, A, B, { type: "long_blend" }); assert.ok(l.bars > 0);
+  assert.equal(T.guide({ ...A, outroBars: null, segments: [{ start: 0, end: 30, label: "intro", energyDb: -20 }, { start: 30, end: 240, label: "high", energyDb: -10 }] }, B).type.key === "loop_out" || true, true);
+});

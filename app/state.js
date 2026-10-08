@@ -67,19 +67,20 @@ const computeSimilarity = (a, b, w = SIM_WEIGHTS, kw = KEY_WEIGHTS) => DjEngine.
 const computeDjCompatibility = (a, b, w = DJ_WEIGHTS, kw = KEY_WEIGHTS, ctx) => DjEngine.djCompat(a, b, w, kw, ctx);
 
 /* ---- transition cache: a pair is computed once; reorders only touch the pairs that did not exist before ---- */
+// compat (cheap, needed for lists) and guide (mix points, only needed where a transition is actually shown) are cached separately
 const transitionCache = new SetTools.TransitionCache((a, b) => {
   const A = trackToEngineShape(a), B = trackToEngineShape(b);
-  const compat = computeDjCompatibility(A, B, state.weights.dj, KEY_WEIGHTS, { bpmReliability: [A.bpmReliability, B.bpmReliability] });
-  return { compat, guide: Transition.guide(A, B, { compat }) };
+  return DjEngine.djCompat(A, B, state.weights.dj, KEY_WEIGHTS, { bpmReliability: [A.bpmReliability, B.bpmReliability] });
 });
-// compat + guide for two library tracks, with any manual mix points applied
+const guideCache = new SetTools.TransitionCache((a, b) => Transition.guide(trackToEngineShape(a), trackToEngineShape(b), { compat: transitionCache.get(a, b) }));
 function transitionOf(a, b) {
-  const base = transitionCache.get(a, b), man = state.currentSet.manualMix[a.id + "|" + b.id];
-  return { compat: base.compat, guide: man ? Transition.applyManual(base.guide, trackToEngineShape(a), trackToEngineShape(b), man) : base.guide };
+  const key = a.id + "|" + b.id;
+  return { compat: transitionCache.get(a, b), get guide() { const base = guideCache.get(a, b), man = state.currentSet.manualMix[key]; return man ? Transition.applyManual(base, trackToEngineShape(a), trackToEngineShape(b), man) : base; } };
 }
+const invalidateTransitions = () => { transitionCache.invalidate(); guideCache.invalidate(); };
 function touchTrack(id) { // analysis / BPM / key / genre changed: drop everything derived from this track
   const t = findTrack(id); if (t) { _shapeCache.delete(t); delete t._grid; }
-  transitionCache.invalidateTrack(id);
+  transitionCache.invalidateTrack(id); guideCache.invalidateTrack(id);
 }
 
 function loadJSON(key, fallback) { try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback; } catch (e) { return fallback; } }
@@ -110,13 +111,13 @@ const state = {
   queue: [], shuffle: false, repeat: "off", selected: new Set(),
   sort: { key: "analyzedAt", dir: -1 }, libRef: null, libView: "table",
   filters: { bpmMin: null, bpmMax: null, energyMin: null, energyMax: null, minSim: null, genres: new Set(), keys: new Set(), status: "", query: "" },
-  next: { mode: "safe" }, ui: { onboardingDone: !!uiPrefs.onboardingDone, onboardingSkip: !!uiPrefs.onboardingSkip },
+  next: { mode: "safe" }, ui: { onboardingDone: !!uiPrefs.onboardingDone, onboardingSkip: !!uiPrefs.onboardingSkip, autoAdvanced: !!uiPrefs.autoAdvanced },
 };
 state.currentSet = hydrateSet(loadJSON(LS_CURRENT, null));
 function persistLibrary() { saveJSON(LS_LIB, state.library); }
 function persistSets() { saveJSON(LS_SETS, state.sets); }
-function persistWeights() { saveJSON(LS_WEIGHTS, state.weights); transitionCache.invalidate(); }
-function persistUi() { saveJSON(LS_UI, { waveStyle: state.waveStyle, onboardingDone: state.ui.onboardingDone, onboardingSkip: state.ui.onboardingSkip }); }
+function persistWeights() { saveJSON(LS_WEIGHTS, state.weights); invalidateTransitions(); }
+function persistUi() { saveJSON(LS_UI, { waveStyle: state.waveStyle, onboardingDone: state.ui.onboardingDone, onboardingSkip: state.ui.onboardingSkip, autoAdvanced: state.ui.autoAdvanced }); }
 function persistCurrentSet() { saveJSON(LS_CURRENT, state.currentSet); }
 function persistCrate() { saveJSON(LS_CRATE, state.crate); }
 
@@ -136,7 +137,7 @@ function toast(msg) {
 }
 
 /* ---- filters (Library, Set Builder crate picker) ---- */
-function hasAudio(tr) { return sessionFiles.has(tr.id) || !!tr.hasAudio; }
+function hasAudio(tr) { return sessionFiles.has(tr.id) || !!tr.hasAudio || !!(tr.libRel && window.atobDesktop); }
 function passFilters(tr, f = state.filters) {
   if (f.bpmMin != null && tr.bpm < f.bpmMin) return false;
   if (f.bpmMax != null && tr.bpm > f.bpmMax) return false;

@@ -63,10 +63,10 @@ function curveSvg(tracks) {
 function renderSetBuilderView(root) {
   const tracks = setTracks(), S = shapes(tracks), b = cur().build;
   if (tracks.length !== cur().trackIds.length) { cur().trackIds = tracks.map((x) => x.id); saveSet(); }
-  const before = transitionCache.computations;
+  const before = guideCache.computations;
   const trans = tracks.slice(0, -1).map((x, i) => transitionOf(x, tracks[i + 1]));
   const analysis = tracks.length > 1 ? SetTools.analyzeSet(S, trans.map((x) => x.compat), { curvePts: b.pts, similarities: tracks.slice(1).map((x, i) => { const so = sonicScore(tracks[i], x); return so ? so.overall : computeSimilarity(S[i], S[i + 1], state.weights.sim, KEY_WEIGHTS).overall; }) }) : null;
-  if (transitionCache.computations !== before && !sbNote) sbNote = t("sb.recalc", { n: transitionCache.computations - before, total: Math.max(0, tracks.length - 1) });
+  if (guideCache.computations !== before && !sbNote) sbNote = t("sb.recalc", { n: guideCache.computations - before, total: Math.max(0, tracks.length - 1) });
   const curves = Object.entries(DjEngine.CURVES);
   const gridNote = gridBusy() ? t("sb.gridProgress", { n: Math.min(gridJobs.done + 1, gridJobs.total), total: gridJobs.total }) : "";
   root.innerHTML = `<div class="sb" id="sbRoot"><div class="col">${cratePanel()}${nextPanel(tracks)}</div><div class="col">

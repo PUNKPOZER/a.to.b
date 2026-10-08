@@ -5,7 +5,7 @@ const SUPPORTED_EXT = /\.(mp3|wav|aiff?|flac|m4a)$/i;
 
 // Import works from anywhere in the app: drop files/folders on the window, or use the buttons / the import panel
 document.addEventListener("click", (e) => {
-  if (e.target.closest("[data-pick-folder]")) { folderInput.click(); return; }
+  if (e.target.closest("[data-pick-folder]")) { if (typeof hasDesktopLibrary === "function" && hasDesktopLibrary()) libFolderPick(); else folderInput.click(); return; }
   if (e.target.closest("[data-pick-files]")) { fileInput.click(); return; }
   const dz = e.target.closest("#dropzone"); if (dz && !e.target.closest("button")) fileInput.click();
 });
@@ -57,7 +57,7 @@ folderInput.addEventListener("change", () => {
 function fileLocation(file) {
   let abs = null; try { abs = (window.atobDesktop && window.atobDesktop.pathForFile(file)) || file.path || null; } catch (e) {}
   const rel = file.webkitRelativePath || file._rel || null;
-  return { path: abs || null, relPath: rel };
+  return { path: abs || file._abs || null, relPath: rel, libRel: file._libRel || null };
 }
 
 function tick(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -95,27 +95,28 @@ async function readTags(arrayBuffer) {
   } catch (e) { return { title: null, artist: null, album: null, cover: null }; }
 }
 
-async function simpleHash(arrayBuffer) {
+async function simpleHash(head, size) {
   try {
-    const digest = await crypto.subtle.digest("SHA-256", arrayBuffer.slice(0, Math.min(arrayBuffer.byteLength, 2_000_000)));
-    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,"0")).join("").slice(0,32) + "_" + arrayBuffer.byteLength;
-  } catch (e) { return "len" + arrayBuffer.byteLength + "_" + Date.now(); }
+    const digest = await crypto.subtle.digest("SHA-256", head);
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,"0")).join("").slice(0,32) + "_" + size;
+  } catch (e) { return "len" + size + "_" + Date.now(); }
 }
 
 // Decode + run the DSP pipeline for one file and store it in the library.
 // Returns { track, duplicate }. Throws on decode/analysis failure so batch
 // callers can catch per-file and keep going.
 async function analyzeAndStoreFile(file, progressCb) {
-  const arrayBuffer = await file.arrayBuffer();
-  const hash = await simpleHash(arrayBuffer);
+  const hash = await simpleHash(await file.slice(0, 2_000_000).arrayBuffer(), file.size);   // identity from the head only: duplicates are skipped without reading the whole file
   const existing = state.library.find(x => x.hash === hash);
   if (existing) {
     // same file dropped again: upgrade an older track (no audio / waveform / advanced analysis yet)
+    if (file._libRel && !existing.libRel) { existing.libRel = file._libRel; existing.path = file._abs || existing.path; AudioStore.del(existing.id); sessionFiles.delete(existing.id); }
     const loc = fileLocation(file); if (!existing.path && loc.path) existing.path = loc.path; if (!existing.relPath && loc.relPath) existing.relPath = loc.relPath; persistLibrary();
     upgradeTrackAudio(existing, file).catch(e => console.warn("upgrade failed", e));
     return { track: existing, duplicate: true };
   }
 
+  const arrayBuffer = await file.arrayBuffer();
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   let audioBuffer;
   try {
@@ -124,15 +125,14 @@ async function analyzeAndStoreFile(file, progressCb) {
     if (progressCb) progressCb(2);
     if (progressCb) progressCb(3);
 
-    const nCh = audioBuffer.numberOfChannels, len = audioBuffer.length;
-    const mono = new Float32Array(len);
-    for (let c = 0; c < nCh; c++) { const d = audioBuffer.getChannelData(c); for (let i=0;i<len;i++) mono[i] += d[i]/nCh; }
-
-    // Essentia.js runs in a worker (WASM); any failure degrades to legacy-only.
+    // all heavy maths runs in workers: the UI thread only decodes
+    const channels = []; for (let c = 0; c < audioBuffer.numberOfChannels; c++) channels.push(audioBuffer.getChannelData(c).slice());
+    const mono = await AnalysisWorker.mono(channels);
+    // Essentia.js runs in its own worker (WASM); any failure degrades to legacy-only.
     const essentia = window.EssentiaLocal
       ? await EssentiaLocal.analyze(mono, audioBuffer.sampleRate, 90)
       : { status: "UNAVAILABLE", reason: "essentia client not loaded" };
-    const result = analyzeChannelData(mono, audioBuffer.sampleRate, { maxSeconds: 90, essentia });
+    const { result, waveform } = await AnalysisWorker.analyze(mono, audioBuffer.sampleRate, essentia, 90);
     if (progressCb) [4,5,6,7,8,9].forEach(progressCb);
 
     const id = "t_" + Math.random().toString(36).slice(2,10);
@@ -146,7 +146,7 @@ async function analyzeAndStoreFile(file, progressCb) {
       bpm: result.bpm, key: result.key, genre: result.genre, profile: result.profile,
       structure: result.structure, featureGroups: result.featureGroups, unknownFields: result.unknownFields,
       analysis: result.analysis, manualOverrides: {},
-      waveform: Waveform.encode(Waveform.compute(mono, audioBuffer.sampleRate)),
+      waveform,
       analyzedAt: Date.now(),
     };
     state.library.push(track);

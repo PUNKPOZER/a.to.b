@@ -13,6 +13,9 @@
 })(typeof self !== "undefined" ? self : this, function (Grid) {
   const PHRASE_BARS = 16;
   const LENGTHS = [64, 32, 16, 8, 4];
+  // every transition the guide can suggest or the user can pick; loop_* use a looped slice of A
+  const TYPES = ["quick_cut", "short_blend", "long_blend", "bass_swap", "filter_sweep", "echo_out", "loop_out", "loop_roll", "breakdown", "drop_swap", "energy_reset"];
+  const LOOP_BARS = [1, 2, 4, 8];
   const r1 = (x) => Math.round(x * 10) / 10;
 
   const barSec = (T) => (T.downbeats && T.downbeats.length > 2 ? (T.downbeats[T.downbeats.length - 1] - T.downbeats[0]) / (T.downbeats.length - 1) : (T.bpm > 0 ? 240 / T.bpm : null));
@@ -65,6 +68,9 @@
       reasons.push({ k: "bothBassHeavy" }); return { key: "bass_swap", reasons };
     }
     if (Math.abs(B.profile.energy - A.profile.energy) >= 18 && A.genre && B.genre && A.genre.primary !== B.genre.primary) { reasons.push({ k: "bigEnergyAndGenreMove" }); return { key: "energy_reset", reasons }; }
+    if (firstChorus && L < 16 && A.profile.energy >= 55 && tdiff <= 5) { reasons.push({ k: "rollIntoDrop" }); return { key: "loop_roll", reasons }; }
+    if ((kd != null && kd >= 2 && kd <= 3) || (tdiff > 3 && tdiff <= 6)) { reasons.push({ k: "filterNeeded" }); return { key: "filter_sweep", reasons }; }
+    if (!(A.outroBars >= 8) && tdiff <= 5 && L >= 4) { reasons.push({ k: "noOutroLoop" }); return { key: "loop_out", reasons }; }
     if (!A.outroBars && L <= 8) { reasons.push({ k: "noOutro" }); return { key: "echo_out", reasons }; }
     reasons.push({ k: "overlapBars", v: L }); return { key: "short_blend", reasons };
   }
@@ -125,12 +131,13 @@
     }
     const mixInT = B.downbeats[mixInIdx];
     const bars = type.key === "quick_cut" ? 0 : L;
+    const loopBars = type.key === "loop_out" ? Math.max(1, Math.min(4, Math.floor((L || 8) / 4) || 1)) : type.key === "loop_roll" ? 2 : null;
     const conf = confidenceOf(A, B, tdiff);
     const energyJump = Math.abs(B.profile.energy - A.profile.energy);
     const diff = difficulty({ tdiff, kd, compat, confidence: conf.level, bars: bars || 0, energyJump });
     return {
       available: true, mixOut: describe(A, mixOutT), mixIn: describe(B, mixInT), bars, seconds: Math.round(bars * barA * 10) / 10,
-      mixOutWhy: out.why, type, difficulty: diff, confidence: conf, compatibility: compat ? compat.overall : null,
+      mixOutWhy: out.why, type, loopBars, difficulty: diff, confidence: conf, compatibility: compat ? compat.overall : null,
       tempoDiffPct: r1(tdiff), camelotDistance: kd, estimated: A.gridKind !== "analyzed" || B.gridKind !== "analyzed", manual: false,
     };
   }
@@ -141,9 +148,12 @@
     const out = { ...g, manual: true };
     if (manual.mixOutTime != null) out.mixOut = describe(A, manual.mixOutTime);
     if (manual.mixInTime != null) out.mixIn = describe(B, manual.mixInTime);
-    if (manual.bars != null) { out.bars = manual.bars; out.seconds = Math.round(manual.bars * barSec(A) * 10) / 10; }
+    if (manual.type && TYPES.includes(manual.type)) { out.type = { key: manual.type, reasons: [{ k: "manualType" }] }; if (manual.bars == null) out.bars = manual.type === "quick_cut" ? 0 : (g.bars || 8); }
+    if (manual.bars != null) out.bars = manual.type === "quick_cut" ? 0 : manual.bars;
+    out.seconds = Math.round(out.bars * barSec(A) * 10) / 10;
+    if (/^loop_/.test(out.type.key)) out.loopBars = LOOP_BARS.includes(manual.loopBars) ? manual.loopBars : (g.loopBars || (out.type.key === "loop_roll" ? 2 : 4)); else out.loopBars = null;
     return out;
   }
 
-  return { guide, applyManual, describe, barSec, sectionAt, tempoDiffPct, camelotDist, PHRASE_BARS, LENGTHS };
+  return { TYPES, LOOP_BARS, guide, applyManual, describe, barSec, sectionAt, tempoDiffPct, camelotDist, PHRASE_BARS, LENGTHS };
 });

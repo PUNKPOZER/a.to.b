@@ -18,14 +18,18 @@ function bindWave(canvas, id) {
   waveCanvases.set(canvas, id);
   canvas._wf = null;
   canvas.onclick = (e) => { const r = canvas.getBoundingClientRect(); playTrack(id, Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))); };
-  redrawWaves();
+  drawWave(canvas, id);
 }
-function redrawWaves() {
+// full redraw (resize, new view); per frame only the waveforms of the track that is playing move
+function drawWave(canvas, id) {
+  const d = player.audio.duration, prog = player.id === id && isFinite(d) && d > 0 ? player.audio.currentTime / d : 0;
+  Waveform.draw(canvas, canvas._wf ||= trackWaveform(id), prog, waveOpts(canvas, id));
+}
+function redrawWaves(onlyPlaying) {
   waveCanvases.forEach((id, canvas) => {
     if (!canvas.isConnected) { waveCanvases.delete(canvas); return; }
-    const d = player.audio.duration;
-    const prog = player.id === id && isFinite(d) && d > 0 ? player.audio.currentTime / d : 0;
-    Waveform.draw(canvas, canvas._wf ||= trackWaveform(id), prog, waveOpts(canvas, id));
+    if (onlyPlaying && player.id !== id) return;
+    drawWave(canvas, id);
   });
 }
 function seekTo(id, sec) { const t = findTrack(id); if (!t || !t.durationSec) return; playTrack(id, Math.max(0, Math.min(1, sec / t.durationSec))); }
@@ -38,7 +42,7 @@ function previewStart(t) {
 }
 function playPreview(id) {
   const t = findTrack(id); if (!t) return;
-  if (player.id === id && !player.audio.paused) { player.audio.pause(); return; }
+  if (player.id === id && !player.audio.paused) { pausePlayer(); return; }
   playTrack(id, player.id === id ? null : previewStart(t));
 }
 
@@ -60,34 +64,46 @@ function updateTransportUI() {
   document.querySelectorAll("[data-trackplay]").forEach((b) => { const on = player.id === b.dataset.trackplay && playing; b.innerHTML = UI.icon(on ? "pause" : "play"); b.setAttribute("aria-label", tx(on ? "player.pause" : "player.play")); });
   document.querySelectorAll("[data-simplay]").forEach((b) => { const on = player.id === b.dataset.simplay && playing; b.classList.toggle("on", on); b.innerHTML = UI.icon(on ? "pause" : "play"); });
 }
-function uiLoop() { redrawWaves(); updateTransportUI(); player.raf = player.audio.paused ? 0 : requestAnimationFrame(uiLoop); }
+function uiLoop() { redrawWaves(true); const a = player.audio; document.getElementById("pbCur").textContent = fmtTime(a.currentTime); document.getElementById("pbDur").textContent = fmtTime(a.duration); player.raf = player.audio.paused ? 0 : requestAnimationFrame(uiLoop); }
 ["play", "playing"].forEach((ev) => player.audio.addEventListener(ev, () => { if (!player.raf) player.raf = requestAnimationFrame(uiLoop); }));
 ["pause", "loadedmetadata", "seeked"].forEach((ev) => player.audio.addEventListener(ev, () => { redrawWaves(); updateTransportUI(); }));
 player.audio.addEventListener("ended", () => { if (state.repeat === "one") { player.audio.currentTime = 0; player.audio.play(); } else playAdjacent(1, true); redrawWaves(); updateTransportUI(); });
 
 function showPlayer(on) { document.getElementById("playerBar").classList.toggle("idle", !on); }
+let playToken = 0;   // every play/pause/stop bumps it, so a slow load can never start playing after the user already pressed pause
+function stopAllAudio(except) {
+  if (except !== "player") { playToken++; if (!player.audio.paused) player.audio.pause(); }
+  if (except !== "guide" && typeof stopTransition === "function") stopTransition();
+}
 async function playTrack(id, seekFrac) {
-  const t = findTrack(id); if (!t) return;
+  const tr = findTrack(id); if (!tr) return;
+  stopAllAudio("player");
+  const token = ++playToken;
   if (player.id !== id) {
     const blob = await getAudioBlob(id);
+    if (token !== playToken) return;                       // paused / switched while loading
     if (!blob) { toast(tx("toast.noAudio")); attachAudioPicker(id); return; }
+    player.audio.pause();
     if (player.url) URL.revokeObjectURL(player.url);
     player.url = URL.createObjectURL(blob);
     player.audio.src = player.url;
     player.id = id; player.wf = trackWaveform(id);
-    document.getElementById("pbTitle").textContent = t.title;
-    document.getElementById("pbArtist").textContent = dispArtist(t);
-    document.getElementById("pbArt").innerHTML = UI.art(t, "xs");
+    document.getElementById("pbTitle").textContent = tr.title;
+    document.getElementById("pbArtist").textContent = dispArtist(tr);
+    document.getElementById("pbArt").innerHTML = UI.art(tr, "xs");
   }
   showPlayer(true);
   const wc = document.getElementById("pbWave"); wc.dataset.kind = "row"; bindWave(wc, id);
-  const seek = () => { if (seekFrac != null && isFinite(player.audio.duration)) player.audio.currentTime = seekFrac * player.audio.duration; };
+  const seek = () => { if (token === playToken && seekFrac != null && isFinite(player.audio.duration)) player.audio.currentTime = seekFrac * player.audio.duration; };
   if (isFinite(player.audio.duration)) seek(); else player.audio.addEventListener("loadedmetadata", seek, { once: true });
-  try { await player.audio.play(); } catch (e) { toast(tx("toast.playFail", { err: e.message || e })); }
+  try { await player.audio.play(); } catch (e) { if (e.name !== "AbortError") toast(tx("toast.playFail", { err: e.message || e })); }
+  if (token !== playToken && !player.audio.paused) player.audio.pause();
   updateTransportUI();
 }
-function togglePlay(id) { if (player.id === id && !player.audio.paused) player.audio.pause(); else playTrack(id); }
+function pausePlayer() { playToken++; player.audio.pause(); updateTransportUI(); }
+function togglePlay(id) { if (player.id === id && !player.audio.paused) pausePlayer(); else playTrack(id); }
 function stopPlayer() {
+  playToken++;
   player.audio.pause(); player.audio.removeAttribute("src"); player.audio.load();
   if (player.url) URL.revokeObjectURL(player.url);
   player.url = null; player.id = null; player.wf = null;
@@ -127,12 +143,12 @@ document.getElementById("pbRepeat").addEventListener("click", () => { state.repe
 document.getElementById("pbQueue").addEventListener("click", openQueue);
 document.getElementById("pbClose").addEventListener("click", stopPlayer);
 document.getElementById("pbVol").addEventListener("input", (e) => { player.audio.volume = +e.target.value; });
-window.addEventListener("resize", redrawWaves);
+window.addEventListener("resize", () => redrawWaves());
 document.addEventListener("keydown", (e) => {
   if (e.code !== "Space" || !player.id) return;
   const tag = (e.target.tagName || "").toLowerCase();
   if (/^(input|textarea|select|button)$/.test(tag) || e.target.isContentEditable) return;
-  e.preventDefault(); togglePlay(player.id);
+  e.preventDefault(); if (typeof guideAudio !== "undefined" && guideAudio.playing) stopTransition(); else togglePlay(player.id);
 });
 // delegated: any element with data-simplay plays a preview; any trow with data-open-track opens the track page
 document.addEventListener("click", (e) => {

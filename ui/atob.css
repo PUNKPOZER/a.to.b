@@ -345,3 +345,9 @@ button.tpill:hover { background: var(--surface-3); border-color: var(--text-2); 
 .controls { grid-template-columns: repeat(auto-fit, minmax(250px, max-content)); }
 .pl-track { align-self: center; }
 @media (max-width: 900px) { .seqhead { display: none; } .node { grid-template-columns: 26px 22px minmax(0, 1fr) auto; } .node .c, .node .rolecell { display: none; } .node .tools { grid-column: 3 / -1; } .tpill .tpos { display: none; } .gwhere { grid-template-columns: 1fr; } }
+
+.folderbar { display: flex; justify-content: space-between; align-items: center; gap: var(--s4); flex-wrap: wrap; border: 1px solid var(--border-strong); border-radius: var(--r-md); padding: var(--s3) var(--s4); margin-top: var(--s4); background: var(--bg); }
+
+.gtype { margin-bottom: var(--s4); } .gtype .label { display: block; margin-bottom: 6px; } .gtype .chip { cursor: pointer; }
+.nudges { display: flex; gap: 4px; align-items: center; justify-content: center; margin-top: 6px; }
+.nudge { background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--r-sm); color: var(--text-2); font-family: var(--mono); font-size: 12px; padding: 3px 9px; min-width: 38px; transition: all var(--t-fast); } .nudge:hover { color: var(--text); border-color: var(--text-2); }

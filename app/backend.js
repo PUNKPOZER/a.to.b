@@ -2,8 +2,10 @@
 // Priority: MANUAL > BACKEND > LOCAL. Status: LOCAL_ANALYSIS -> ADVANCED_ANALYSIS -> COMPLETE | FAILED.
 let advChain = Promise.resolve();
 const advRunning = new Set();
-function queueAdvanced(id, file) {
+// the backend stages (Essentia, All-In-One, EffNet) are heavy: they run on request, or automatically only if switched on in Settings
+function queueAdvanced(id, file, force) {
   if (!window.BackendClient || !BackendClient.apiUrl()) return;
+  if (!force && !state.ui.autoAdvanced) return;
   const tr = findTrack(id); if (tr && tr.analysis && tr.analysis.status !== "COMPLETE") { tr.analysis.status = "QUEUED"; refreshTrackViews(id); }
   advChain = advChain.then(() => runAdvanced(id, file)).catch(e => console.warn("advanced analysis", e));
 }
@@ -247,12 +249,17 @@ document.getElementById("backendPill").addEventListener("click", () => setActive
 /* ---- audio files: IndexedDB (persistent) + in-memory map (works even when IndexedDB is blocked) ---- */
 const sessionFiles = new Map();
 async function keepAudio(id, file) {
+  const own = findTrack(id); if (own && own.libRel && window.atobDesktop) return;   // served straight from the music folder: no second copy in IndexedDB / memory
   sessionFiles.set(id, file);
   const ok = await AudioStore.put(id, file);
   const tr = findTrack(id); if (tr && tr.hasAudio !== !!ok) { tr.hasAudio = !!ok; persistLibrary(); }
   if (!ok && !keepAudio.warned) { keepAudio.warned = true; toast(t("toast.noIndexedDb")); }
 }
-async function getAudioBlob(id) { return sessionFiles.get(id) || (await AudioStore.get(id)); }
+async function getAudioBlob(id) {
+  const tr = findTrack(id);
+  if (tr && tr.libRel && window.atobDesktop && atobDesktop.library) { try { const r = await fetch(atobDesktop.library.url(tr.libRel)); if (r.ok) return await r.blob(); } catch (e) {} }
+  return sessionFiles.get(id) || (await AudioStore.get(id));
+}
 
 // Give an existing track its audio + waveform (+ backend analysis). Used when a track was analysed
 // before audio storage existed, or analysed in another browser profile.
@@ -261,10 +268,10 @@ async function upgradeTrackAudio(t, file) {
   if (!t.waveform) {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     try {
-      const ab = await ctx.decodeAudioData(await file.arrayBuffer());
-      const mono = new Float32Array(ab.length);
-      for (let c = 0; c < ab.numberOfChannels; c++) { const d = ab.getChannelData(c); for (let i = 0; i < ab.length; i++) mono[i] += d[i] / ab.numberOfChannels; }
-      t.waveform = Waveform.encode(Waveform.compute(mono, ab.sampleRate));
+      const ab = await ctx.decodeAudioData(await file.arrayBuffer()), channels = [];
+      for (let c = 0; c < ab.numberOfChannels; c++) channels.push(ab.getChannelData(c).slice());
+      const mono = await AnalysisWorker.mono(channels);
+      t.waveform = (await AnalysisWorker.analyze(mono, ab.sampleRate, { status: "UNAVAILABLE" }, 90)).waveform;
     } finally { ctx.close(); }
     persistLibrary();
   }

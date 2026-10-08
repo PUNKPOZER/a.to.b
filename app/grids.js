@@ -8,17 +8,16 @@ const gridState = (id) => (gridJobs.running.has(id) ? "running" : gridJobs.queue
 async function decodeMono(blob) {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   try {
-    const ab = await ctx.decodeAudioData(await blob.arrayBuffer()), mono = new Float32Array(ab.length);
-    for (let c = 0; c < ab.numberOfChannels; c++) { const d = ab.getChannelData(c); for (let i = 0; i < ab.length; i++) mono[i] += d[i] / ab.numberOfChannels; }
-    return { mono, sr: ab.sampleRate };
+    const ab = await ctx.decodeAudioData(await blob.arrayBuffer()), channels = [];
+    for (let c = 0; c < ab.numberOfChannels; c++) channels.push(ab.getChannelData(c).slice());
+    return { mono: await AnalysisWorker.mono(channels), sr: ab.sampleRate };
   } finally { ctx.close(); }
 }
 async function buildLocalGrid(id) {
   const tr = findTrack(id); if (!tr || hasBarGrid(tr)) return true;
   const blob = await getAudioBlob(id); if (!blob) { gridJobs.skip.add(id); return false; }
   const { mono, sr } = await decodeMono(blob);
-  await new Promise((r) => setTimeout(r, 0));
-  const r = LocalGrid.analyze(mono, sr, tr.bpm);
+  const r = await AnalysisWorker.grid(mono, sr, tr.bpm);
   tr.analysis = tr.analysis || {};
   if (!r) { tr.analysis.localGrid = { status: "UNAVAILABLE", bpm: tr.bpm, reason: "no stable beat found" }; persistLibrary(); return false; }
   const bar = (r.downbeats[r.downbeats.length - 1] - r.downbeats[0]) / (r.downbeats.length - 1);

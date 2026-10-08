@@ -16,7 +16,7 @@ function exportTransitions(tracks) {
   });
 }
 const exportLabels = () => ({ bars: t("unit.bars"), cut: t("guide.cut"), tracks: t("sb.tracks").toLowerCase(), transitions: t("exp.transitions"), trackA: t("exp.trackA"), trackB: t("exp.trackB"), mixOut: t("guide.mixOut").toLowerCase(), mixIn: t("guide.mixIn").toLowerCase(), bar: t("exp.bar"), confidence: t("guide.confidence").toLowerCase(), manual: t("common.manual"),
-  typeNames: Object.fromEntries(["quick_cut", "breakdown", "drop_swap", "long_blend", "bass_swap", "energy_reset", "echo_out", "short_blend"].map((k) => [k, t("ttype." + k)])) });
+  typeNames: Object.fromEntries(Transition.TYPES.map((k) => [k, t("ttype." + k)])) });
 function exportBaseDir() { try { return localStorage.getItem(LS_BASEDIR) || ""; } catch (e) { return ""; } }
 function exportContext(tracks) {
   return { tracks: tracks.map(exportTrack), transitions: exportTransitions(tracks), name: cur().name, baseDir: exportBaseDir(), cues: exportOpts.cues, beatGrid: exportOpts.beatGrid, labels: exportLabels(), version: APP_VERSION, comment: "" };

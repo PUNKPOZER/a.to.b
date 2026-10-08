@@ -17,4 +17,5 @@ refreshBackendPill();
 // the backend may start after the page (desktop app launches it in the background): keep the status honest
 setInterval(() => { if (!document.hidden && BackendClient.apiUrl()) refreshBackendPill(); }, 15000);
 startOnboarding(false);
+libFolderInit();
 

@@ -226,7 +226,7 @@ function djBreakdown(d) {
 }
 function confidenceBadge(c) { return `<span class="badge ${c.level}" data-tip="${UI.esc(c.missing.length ? t("conf.missing", { list: c.missing.map((k) => t("dj." + k)).join(", ") }) : t("conf.full"))}">${t("conf." + c.level)}</span>`; }
 function tabDj(tr) {
-  const rows = state.library.filter((o) => o.id !== tr.id).map((o) => ({ o, ...transitionOf(tr, o), sonic: sonicScore(tr, o) })).sort((a, b) => b.compat.overall - a.compat.overall).slice(0, 8);
+  const rows = state.library.filter((o) => o.id !== tr.id).map((o) => { const x = transitionOf(tr, o); return { o, compat: x.compat, get guide() { return x.guide; }, sonic: sonicScore(tr, o) }; }).sort((a, b) => b.compat.overall - a.compat.overall).slice(0, 8);
   if (!rows.length) return `<div class="empty">${t("dj.addMore")}</div>`;
   return `${UI.sectionHead(t("dj.mixesWell") + UI.help("dj"), t("dj.basis"))}` + rows.map((r) => `<div class="djrow">
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">${UI.art(r.o, "xs")}<div style="flex:1;min-width:140px;cursor:pointer" data-open-track="${r.o.id}"><div class="t2 dim" style="font-size:11px">${UI.esc(dispArtist(r.o))}</div><div>${UI.esc(r.o.title)}</div></div>

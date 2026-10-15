@@ -110,7 +110,8 @@ const state = {
   tab: "analyze", trackTab: "overview", waveStyle: uiPrefs.waveStyle || "mono",
   queue: [], shuffle: false, repeat: "off", selected: new Set(),
   sort: { key: "analyzedAt", dir: -1 }, libRef: null, libView: "table",
-  filters: { bpmMin: null, bpmMax: null, energyMin: null, energyMax: null, minSim: null, genres: new Set(), keys: new Set(), status: "", query: "" },
+  filters: { bpmMin: null, bpmMax: null, energyMin: null, energyMax: null, minSim: null, genres: new Set(), keys: new Set(), status: "", query: "", batchId: null, folder: null, dateFrom: null, dateTo: null },
+  libSection: "tracks", recent: { preset: "7d", from: null, to: null, dir: -1 },
   next: { mode: "safe" }, ui: { onboardingDone: !!uiPrefs.onboardingDone, onboardingSkip: !!uiPrefs.onboardingSkip, autoAdvanced: !!uiPrefs.autoAdvanced },
 };
 state.currentSet = hydrateSet(loadJSON(LS_CURRENT, null));
@@ -139,13 +140,7 @@ function toast(msg) {
 /* ---- filters (Library, Set Builder crate picker) ---- */
 function hasAudio(tr) { return sessionFiles.has(tr.id) || !!tr.hasAudio || !!(tr.libRel && window.atobDesktop); }
 function passFilters(tr, f = state.filters) {
-  if (f.bpmMin != null && tr.bpm < f.bpmMin) return false;
-  if (f.bpmMax != null && tr.bpm > f.bpmMax) return false;
-  if (f.energyMin != null && tr.profile.energy < f.energyMin) return false;
-  if (f.energyMax != null && tr.profile.energy > f.energyMax) return false;
-  if (f.genres.size && !f.genres.has(tr.genre.primary)) return false;
-  if (f.keys.size && !f.keys.has(tr.key.camelot)) return false;
-  if (f.query) { const q = f.query.toLowerCase(); if (!(tr.title + " " + tr.artist + " " + tr.genre.primary).toLowerCase().includes(q)) return false; }
+  if (!LibraryTools.matchTrack(tr, f)) return false;
   const an = tr.analysis || {};
   if (f.status === "COMPLETE" && an.status !== "COMPLETE") return false;
   if (f.status === "STRUCTURE" && !(an.structure && an.structure.status === "AVAILABLE")) return false;
@@ -153,8 +148,8 @@ function passFilters(tr, f = state.filters) {
   if (f.status === "NOAUDIO" && hasAudio(tr)) return false;
   return true;
 }
-function filtersActive() { const f = state.filters; return f.bpmMin != null || f.bpmMax != null || f.energyMin != null || f.energyMax != null || f.minSim != null || f.genres.size || f.keys.size || f.status || f.query; }
-function resetFilters() { Object.assign(state.filters, { bpmMin: null, bpmMax: null, energyMin: null, energyMax: null, minSim: null, status: "", query: "" }); state.filters.genres.clear(); state.filters.keys.clear(); }
+function filtersActive() { const f = state.filters; return f.bpmMin != null || f.bpmMax != null || f.energyMin != null || f.energyMax != null || f.minSim != null || f.genres.size || f.keys.size || f.status || f.query || f.batchId || f.folder != null || f.dateFrom != null || f.dateTo != null; }
+function resetFilters() { Object.assign(state.filters, { bpmMin: null, bpmMax: null, energyMin: null, energyMax: null, minSim: null, status: "", query: "", batchId: null, folder: null, dateFrom: null, dateTo: null }); state.filters.genres.clear(); state.filters.keys.clear(); }
 
 /* ---- routing ---- */
 const TABS = ["analyze", "library", "setbuilder", "sets", "explore", "settings"];

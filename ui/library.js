@@ -1,5 +1,5 @@
 /* =================== Library: sortable, filterable, comparable =================== */
-const LIB_COLS = ["track", "bpm", "key", "genre", "energy", "sonic", "dj", "status"];
+const LIB_COLS = ["track", "bpm", "key", "genre", "energy", "added", "sonic", "dj", "status"];
 
 function libRows() {
   const ref = findTrack(state.libRef) || null;
@@ -12,12 +12,12 @@ function libRows() {
   if (state.filters.minSim != null && ref) rows = rows.filter((r) => r.isRef || (r.sonic ?? 0) >= state.filters.minSim);
   const k = state.sort.key, d = state.sort.dir;
   const val = { track: (r) => (r.t.artist + " " + r.t.title).toLowerCase(), bpm: (r) => r.t.bpm, key: (r) => parseInt(r.t.key.camelot) * 2 + (r.t.key.camelot.endsWith("B") ? 1 : 0) || 99, genre: (r) => r.t.genre.primary,
-    energy: (r) => r.t.profile.energy, sonic: (r) => r.sonic ?? -1, dj: (r) => r.dj ?? -1, status: (r) => (r.t.analysis ? { COMPLETE: 4, SONIC_EMBEDDING: 3, STRUCTURE_ANALYSIS: 2, ADVANCED_ANALYSIS: 1 }[r.t.analysis.status] || 0 : -1), analyzedAt: (r) => r.t.analyzedAt }[k] || (() => 0);
+    energy: (r) => r.t.profile.energy, sonic: (r) => r.sonic ?? -1, dj: (r) => r.dj ?? -1, status: (r) => (r.t.analysis ? { COMPLETE: 4, SONIC_EMBEDDING: 3, STRUCTURE_ANALYSIS: 2, ADVANCED_ANALYSIS: 1 }[r.t.analysis.status] || 0 : -1), analyzedAt: (r) => r.t.analyzedAt, added: (r) => r.t.dateAddedToAToB ?? -Infinity }[k] || (() => 0);
   rows.sort((a, b) => { const x = val(a), y = val(b); return (x > y ? 1 : x < y ? -1 : 0) * d; });
   return rows;
 }
 
-function renderLibraryView(root) {
+function renderLibraryTracks(root) {
   const ref = findTrack(state.libRef);
   const f = state.filters, num = (v) => (v == null ? "" : v);
   root.innerHTML = `<div id="libraryRoot" class="col"><section class="panel">
@@ -57,7 +57,7 @@ function renderLibraryTable() {
         <td><input type="checkbox" data-sel="${tr.id}" ${sel.has(tr.id) ? "checked" : ""} aria-label="${UI.esc(tr.title)}" style="width:auto"></td>
         <td><div style="display:flex;gap:12px;align-items:center;min-width:0"><span class="artplay">${UI.art(tr, "xs")}<button class="ov ${player.id === tr.id && !player.audio.paused ? "on" : ""}" data-simplay="${tr.id}" aria-label="${UI.esc(t("player.play"))}">${UI.icon("play")}</button></span>
           <div style="min-width:0"><div class="dim" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px">${UI.esc(dispArtist(tr))}</div><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px">${UI.esc(tr.title)}</div></div></div></td>
-        <td class="num">${tr.bpm.toFixed(1)}</td><td>${UI.keyBadge(tr.key.camelot)}</td><td class="dim">${UI.esc(tr.genre.primary)}</td><td class="num">${Math.round(tr.profile.energy)}</td>
+        <td class="num">${tr.bpm.toFixed(1)}</td><td>${UI.keyBadge(tr.key.camelot)}</td><td class="dim">${UI.esc(tr.genre.primary)}</td><td class="num">${Math.round(tr.profile.energy)}</td><td class="mono dim" style="white-space:nowrap">${UI.esc(fmtAdded(tr.dateAddedToAToB))}</td>
         <td>${isRef ? `<span class="label">${t("lib.reference")}</span>` : ref ? UI.score("sonic", sonic) : UI.NA}</td><td>${isRef || !ref ? "" : UI.score("dj", dj)}${conf && conf.level !== "high" ? ` <span class="badge ${conf.level}" data-tip="${UI.esc(t("conf.missing", { list: conf.missing.map((k) => t("dj." + k)).join(", ") || UI.NA }))}">${t("conf." + conf.level)}</span>` : ""}</td>
         <td><span class="label">${UI.esc(UI.statusWord(tr))}</span></td>
         <td><button class="iconbtn" data-rowmore="${tr.id}" aria-label="${UI.esc(t("common.more"))}">${UI.icon("more")}</button></td></tr>`).join("")}</tbody></table></div>

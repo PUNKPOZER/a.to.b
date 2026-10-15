@@ -184,4 +184,11 @@ const I18N_EN = {
   "twhy.filterNeeded": "Tempo or key differ a little: a filter sweep hides the difference while B comes in", "twhy.noOutroLoop": "Track A has no real outro: its last bars are looped so B can come in over them", "twhy.rollIntoDrop": "B hits with a chorus after its intro and the overlap is short: roll A out, then drop B", "twhy.manualType": "You chose this transition type",
   "guide.loopLength": "Loop length", "guide.nudge": "Move the mix point by {n}", "guide.nudgeGroup": "Move the mix point", "help.gtype": "Pick how the two tracks are joined. The program suggests one from the measured data; any other type is yours to try, and the preview plays exactly what you picked.",
   "unit.bar1": "bar",
+  "lib.sec.tracks": "Tracks", "lib.sec.recent": "Recently added", "lib.sec.history": "Import history", "lib.sec.folders": "Folders", "lib.sec.rekordbox": "Rekordbox", "col.added": "Added",
+  "hist.today": "Today", "hist.yesterday": "Yesterday", "hist.unknown": "Import date unknown", "hist.shown": "{n} of {total} tracks", "hist.unknownN": "{n} without an import date", "hist.newest": "Newest first", "hist.oldest": "Oldest first",
+  "hist.added": "Added", "hist.source": "Source", "hist.noneInRange": "No tracks were added in this period.", "hist.src.folder": "Folder import", "hist.src.files": "Files", "hist.src.rekordbox": "Rekordbox XML", "hist.src.unknown": "Unknown source",
+  "hist.emptyTitle": "No imports yet", "hist.emptyText": "Imports are listed here as soon as you add tracks. Tracks imported earlier are shown by their analysis date.", "hist.batches": "{n} imports", "hist.tracksN": "{n} tracks", "hist.knownN": "{n} already known",
+  "hist.addCrate": "Add all to crate", "hist.createSet": "Create set", "hist.smart": "Smart Build", "hist.filter": "Filter library", "hist.batchEmpty": "These tracks were deleted from the library.", "hist.foldersN": "{n} folders", "hist.noFolder": "Folder unknown", "hist.imported": "Imported",
+  "hist.p.today": "Today", "hist.p.yesterday": "Yesterday", "hist.p.7d": "Last 7 days", "hist.p.30d": "Last 30 days", "hist.p.thisMonth": "This month", "hist.p.lastMonth": "Last month", "hist.p.custom": "Custom range",
+  "smart.fromSelection": "Smart Build from selection", "import.batchFolder": "Folder import", "import.batchFiles": "Files", "import.batchRekordbox": "Rekordbox XML",
 };

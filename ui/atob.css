@@ -351,3 +351,9 @@ button.tpill:hover { background: var(--surface-3); border-color: var(--text-2); 
 .gtype { margin-bottom: var(--s4); } .gtype .label { display: block; margin-bottom: 6px; } .gtype .chip { cursor: pointer; }
 .nudges { display: flex; gap: 4px; align-items: center; justify-content: center; margin-top: 6px; }
 .nudge { background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--r-sm); color: var(--text-2); font-family: var(--mono); font-size: 12px; padding: 3px 9px; min-width: 38px; transition: all var(--t-fast); } .nudge:hover { color: var(--text); border-color: var(--text-2); }
+
+.batch { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg); margin-bottom: var(--s2); }
+.batchhead { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); padding: 10px 14px; flex-wrap: wrap; }
+.batchmain { background: none; border: none; color: inherit; text-align: left; display: grid; gap: 2px; cursor: pointer; min-width: 0; } .batchmain b { font-size: 15px; }
+.batchtracks { border-top: 1px solid var(--border); padding: 4px 14px 8px; }
+.bulk { padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: var(--s3); }

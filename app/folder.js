@@ -42,6 +42,7 @@ async function libFolderForget() {
 // analyze the new files one by one; the heavy work is in workers, so the UI stays usable
 async function libFolderImport() {
   if (LibFolder.importing || !LibFolder.fresh.length) return;
+  beginImport({ type: "folder", name: LibFolder.dir.split(/[\\/]/).filter(Boolean).pop(), sourcePath: LibFolder.dir });
   const todo = LibFolder.fresh.slice(); LibFolder.importing = { done: 0, total: todo.length }; let ok = 0, fail = 0, last = null;
   for (const f of todo) {
     renderBatchProgress(LibFolder.importing.done, todo.length, f.rel.split("/").pop());
@@ -54,7 +55,7 @@ async function libFolderImport() {
     } catch (e) { console.warn("folder import", f.rel, e); fail++; }
     LibFolder.importing.done++; await tick(40);   // breathe: keep the UI and the audio playback smooth
   }
-  LibFolder.importing = null; document.getElementById("analyzeProgress").classList.add("hidden");
+  LibFolder.importing = null; endImport(); document.getElementById("analyzeProgress").classList.add("hidden");
   toast([t("import.summaryOk", { n: ok }), fail ? t("import.summaryFail", { n: fail }) : ""].filter(Boolean).join(" · "));
   await libFolderScan(true);
   if (last && state.tab === "analyze") onTrackReady(last);

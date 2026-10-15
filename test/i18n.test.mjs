@@ -9,7 +9,7 @@ const ph = (s) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(","
 
 // families the code builds at run time: prefix + each suffix
 const FAMILIES = {
-  "col.": ["track", "bpm", "key", "genre", "energy", "sonic", "dj", "status"], "conf.": ["high", "medium", "low", "full", "missing"], "curve.": ["smooth", "buildup", "peak", "wave", "journey", "experimental", "custom"],
+  "col.": ["track", "bpm", "key", "genre", "energy", "sonic", "dj", "status", "added"], "conf.": ["high", "medium", "low", "full", "missing"], "curve.": ["smooth", "buildup", "peak", "wave", "journey", "experimental", "custom"],
   "dfac.": ["tempoFar", "tempoStretch", "keyFar", "keyStep", "rhythmMismatch", "shortOverlap", "energyJump", "lowConfidence", "none"], "diff.": ["easy", "medium", "hard", "experimental"],
   "dj.": ["tempo", "key", "rhythm", "groove", "energy", "structure", "genre"], "exp.guide.": ["1", "2", "3", "4", "5"], "exp.issue.": ["noFilename", "noLocation", "noDuration", "duplicate", "unsupportedFormat"],
   "exp.f.": ["rekordbox", "m3u8", "txt", "sheet", "sheetjson"], "gconf.": ["gridEstimatedA", "gridEstimatedB", "noSections", "tempoFar", "bpmUncertain", "ok"], "grid.": ["analyzed", "estimated", "local"], "guide.reason.": ["noGrid", "gridTooShort"],
@@ -29,6 +29,7 @@ const FAMILIES = {
   "player.": ["pause"], "harm.": ["melodic"], "similar.": ["noMatch"], "lib.": ["emptyTitle", "emptyText", "statusAll", "statusComplete", "statusStructure", "statusSonic", "statusNoAudio"],
   "sb.": ["lock", "unlock", "lockTip", "lockFirst", "unlockFirst", "lockLast", "unlockLast", "roleAuto", "roleManual"], "sets.": ["emptyTitle", "emptyText"],
 };
+Object.assign(FAMILIES, { "lib.sec.": ["tracks", "recent", "history", "folders", "rekordbox"], "hist.src.": ["folder", "files", "rekordbox", "unknown"], "hist.p.": ["today", "yesterday", "7d", "30d", "thisMonth", "lastMonth", "custom"], "import.": ["batchFolder", "batchFiles", "batchRekordbox"] });
 const PLURAL = ["toast.crateAdded"];
 
 test("both languages define exactly the same keys, with the same placeholders", () => {

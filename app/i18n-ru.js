@@ -167,4 +167,11 @@ const I18N_RU = {
   "twhy.filterNeeded": "Темп или тональность немного различаются: фильтр-свип скрывает разницу, пока входит B", "twhy.noOutroLoop": "У трека A нет настоящего аутро: его последние такты зацикливаются, чтобы поверх вошёл B", "twhy.rollIntoDrop": "B бьёт припевом после интро, а наложение короткое: раскатываем A и роняем B", "twhy.manualType": "Вы выбрали этот тип перехода",
   "guide.loopLength": "Длина лупа", "guide.nudge": "Сдвинуть точку микса на {n}", "guide.nudgeGroup": "Сдвиг точки микса", "help.gtype": "Выберите, как соединить два трека. Программа предлагает вариант по измеренным данным; любой другой тип можно попробовать, и предпрослушивание играет именно выбранный.",
   "unit.bar1": "такт",
+  "lib.sec.tracks": "Треки", "lib.sec.recent": "Недавно добавленные", "lib.sec.history": "История импорта", "lib.sec.folders": "Папки", "lib.sec.rekordbox": "Rekordbox", "col.added": "Добавлен",
+  "hist.today": "Сегодня", "hist.yesterday": "Вчера", "hist.unknown": "Дата импорта неизвестна", "hist.shown": "{n} из {total} треков", "hist.unknownN": "без даты импорта: {n}", "hist.newest": "Сначала новые", "hist.oldest": "Сначала старые",
+  "hist.added": "Добавлен", "hist.source": "Источник", "hist.noneInRange": "За этот период треки не добавлялись.", "hist.src.folder": "Импорт папки", "hist.src.files": "Файлы", "hist.src.rekordbox": "Rekordbox XML", "hist.src.unknown": "Источник неизвестен",
+  "hist.emptyTitle": "Импортов пока нет", "hist.emptyText": "Импорты появятся здесь, как только вы добавите треки. Ранее импортированные треки показаны по дате анализа.", "hist.batches": "импортов: {n}", "hist.tracksN": "треков: {n}", "hist.knownN": "уже были: {n}",
+  "hist.addCrate": "Всё в ящик", "hist.createSet": "Создать сет", "hist.smart": "Умная сборка", "hist.filter": "Фильтр в библиотеке", "hist.batchEmpty": "Эти треки удалены из библиотеки.", "hist.foldersN": "папок: {n}", "hist.noFolder": "Папка неизвестна", "hist.imported": "Импортирована",
+  "hist.p.today": "Сегодня", "hist.p.yesterday": "Вчера", "hist.p.7d": "7 дней", "hist.p.30d": "30 дней", "hist.p.thisMonth": "Этот месяц", "hist.p.lastMonth": "Прошлый месяц", "hist.p.custom": "Свой период",
+  "smart.fromSelection": "Умная сборка из выбранных", "import.batchFolder": "Импорт папки", "import.batchFiles": "Файлы", "import.batchRekordbox": "Rekordbox XML",
 };

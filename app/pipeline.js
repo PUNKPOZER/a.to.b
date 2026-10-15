@@ -112,6 +112,7 @@ async function analyzeAndStoreFile(file, progressCb) {
     // same file dropped again: upgrade an older track (no audio / waveform / advanced analysis yet)
     if (file._libRel && !existing.libRel) { existing.libRel = file._libRel; existing.path = file._abs || existing.path; AudioStore.del(existing.id); sessionFiles.delete(existing.id); }
     const loc = fileLocation(file); if (!existing.path && loc.path) existing.path = loc.path; if (!existing.relPath && loc.relPath) existing.relPath = loc.relPath; persistLibrary();
+    stampKnownTrack(existing); persistLibrary();
     upgradeTrackAudio(existing, file).catch(e => console.warn("upgrade failed", e));
     return { track: existing, duplicate: true };
   }
@@ -149,6 +150,7 @@ async function analyzeAndStoreFile(file, progressCb) {
       waveform,
       analyzedAt: Date.now(),
     };
+    stampNewTrack(track, file);
     state.library.push(track);
     persistLibrary();
     keepAudio(id, file);      // keeps the track playable / re-analyzable (IndexedDB + in-memory fallback)
@@ -160,6 +162,10 @@ async function analyzeAndStoreFile(file, progressCb) {
 }
 
 async function handleFiles(files) {
+  const batch = beginImport({ type: files.some((f) => f.webkitRelativePath || f._rel) ? "folder" : "files", name: importNameFor(files) });
+  try { await handleFilesInner(files); } finally { endImport(); if (state.tab === "library") renderActiveView(); }
+}
+async function handleFilesInner(files) {
   document.getElementById("analyzeProgress").classList.add("hidden");
   if (state.tab !== "analyze") setActiveTab("analyze");
 

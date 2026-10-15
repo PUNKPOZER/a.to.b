@@ -59,7 +59,7 @@ function removeTrackEverywhere(id) {
   state.crate = state.crate.filter((x) => x !== id); state.queue = state.queue.filter((x) => x !== id); state.selected.delete(id);
   if (state.currentTrackId === id) state.currentTrackId = null;
   if (state.libRef === id) state.libRef = null;
-  touchTrack(id);
+  touchTrack(id); forgetTrackInBatches(id);
 }
 async function deleteTrackPrompt(id) {
   if (!(await askConfirm(tx("track.deleteAsk"), tx("common.delete")))) return;

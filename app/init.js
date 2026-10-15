@@ -6,7 +6,6 @@ state.library.forEach((tr) => { if (tr.analysis && tr.analysis.sonic && tr.genre
 // stored data from the NOESIS versions keeps working: unknown fields are simply absent, nothing is re-analysed
 state.library.forEach((tr) => { if (!tr.analysisVersion) tr.analysisVersion = (tr.analysis && tr.analysis.version) || 1; });
 persistLibrary();
-document.getElementById("searchIcon") && (document.getElementById("searchIcon").innerHTML = UI.icon("search"));
 mountPlayerIcons();
 applyStaticI18n();
 renderChrome();

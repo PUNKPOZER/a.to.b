@@ -357,3 +357,12 @@ button.tpill:hover { background: var(--surface-3); border-color: var(--text-2); 
 .batchmain { background: none; border: none; color: inherit; text-align: left; display: grid; gap: 2px; cursor: pointer; min-width: 0; } .batchmain b { font-size: 15px; }
 .batchtracks { border-top: 1px solid var(--border); padding: 4px 14px 8px; }
 .bulk { padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: var(--s3); }
+
+.rbcols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s5); } @media (max-width: 760px) { .rbcols { grid-template-columns: 1fr; } }
+.rbrow { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-md); } .rbrow.bad b { color: var(--warning); }
+.rbtree { max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: var(--r-md); padding: 6px; margin-top: 10px; background: var(--bg); }
+.rbnode { display: flex; gap: 8px; align-items: center; padding: 4px 6px; font-size: 13px; cursor: pointer; } .rbnode .mono { margin-left: auto; } .rbfolder { display: inline-flex; gap: 6px; align-items: center; } .rbfolder svg { width: 14px; height: 14px; color: var(--text-3); }
+.rbconfirm { display: flex; gap: 8px; align-items: center; font-size: 13px; margin-top: 10px; color: var(--text-2); }
+.rbamb { max-height: 220px; overflow: auto; display: grid; gap: 6px; } .rbambrow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 280px); gap: 10px; align-items: center; font-size: 13px; border-top: 1px solid var(--border); padding-top: 6px; }
+.rbline { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); padding: 6px 0; border-top: 1px solid var(--border); flex-wrap: wrap; } .rbline .batchmain svg { width: 14px; height: 14px; }
+.warnbox { border: 1px solid rgba(232,182,74,.5); color: var(--warning); border-radius: var(--r-md); padding: 8px 12px; font-size: 13px; margin-bottom: 12px; }

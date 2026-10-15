@@ -47,6 +47,9 @@ function serveLibrary(req, res, relPath) {
     } else { res.writeHead(200, { "Content-Type": type, "Accept-Ranges": "bytes", "Content-Length": st.size }); fs.createReadStream(file).pipe(res); }
   });
 }
+// Rekordbox XML gives absolute paths: check which exist and read a file the user chose to analyze (audio files only)
+ipcMain.handle("rb:exists", (_e, paths) => { const o = {}; for (const p of (paths || []).slice(0, 50000)) { try { o[p] = fs.existsSync(p) && fs.statSync(p).isFile(); } catch (e) { o[p] = false; } } return o; });
+ipcMain.handle("rb:read", async (_e, p) => { if (!AUDIO_EXT.test(String(p))) throw new Error("not an audio file"); return fs.promises.readFile(p); });
 ipcMain.handle("library:get", () => ({ dir: libraryDir }));
 ipcMain.handle("library:pick", async () => {
   const r = await dialog.showOpenDialog(win, { properties: ["openDirectory"], title: "a.to.b — music folder" });

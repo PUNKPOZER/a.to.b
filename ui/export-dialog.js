@@ -4,7 +4,7 @@ let exportOpts = { format: "rekordbox", cues: true, beatGrid: false };
 
 function exportTrack(tr) {
   const g = trackGrid(tr);
-  return { id: tr.id, artist: tr.artist === UNKNOWN_ARTIST ? "" : tr.artist, title: tr.title, album: tr.album || "", genre: tr.genre ? tr.genre.primary : "", filename: tr.filename, relPath: tr.relPath || null, path: tr.path || null,
+  return { id: tr.id, artist: tr.artist === UNKNOWN_ARTIST ? "" : tr.artist, title: tr.title, album: tr.album || "", genre: tr.genre ? tr.genre.primary : "", filename: tr.filename, relPath: tr.relPath || null, path: tr.path || (tr.rekordbox && tr.rekordbox.path) || null,
     durationSec: tr.durationSec, bpm: tr.bpm, key: tr.key, format: tr.format, sampleRate: tr.sampleRate, sizeBytes: tr.sizeBytes || null,
     grid: g && g.kind === "analyzed" ? { first: g.downbeats[0], bpm: tr.bpm } : null };   // only an analysed grid is exported as a beat grid
 }

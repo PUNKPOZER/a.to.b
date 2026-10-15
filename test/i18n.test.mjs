@@ -29,7 +29,7 @@ const FAMILIES = {
   "player.": ["pause"], "harm.": ["melodic"], "similar.": ["noMatch"], "lib.": ["emptyTitle", "emptyText", "statusAll", "statusComplete", "statusStructure", "statusSonic", "statusNoAudio"],
   "sb.": ["lock", "unlock", "lockTip", "lockFirst", "unlockFirst", "lockLast", "unlockLast", "roleAuto", "roleManual"], "sets.": ["emptyTitle", "emptyText"],
 };
-Object.assign(FAMILIES, { "lib.sec.": ["tracks", "recent", "history", "folders", "rekordbox"], "hist.src.": ["folder", "files", "rekordbox", "unknown"], "hist.p.": ["today", "yesterday", "7d", "30d", "thisMonth", "lastMonth", "custom"], "import.": ["batchFolder", "batchFiles", "batchRekordbox"] });
+Object.assign(FAMILIES, { "lib.sec.": ["tracks", "recent", "history", "folders", "rekordbox"], "hist.src.": ["folder", "files", "rekordbox", "unknown"], "hist.p.": ["today", "yesterday", "7d", "30d", "thisMonth", "lastMonth", "custom"], "import.": ["batchFolder", "batchFiles", "batchRekordbox"], "rb.err.": ["xml", "notRekordbox"], "rb.howExport.": ["1", "2", "3"] });
 const PLURAL = ["toast.crateAdded"];
 
 test("both languages define exactly the same keys, with the same placeholders", () => {

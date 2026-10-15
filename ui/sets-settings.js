@@ -21,10 +21,10 @@ document.addEventListener("click", async (e) => {
   if (del) { if (!(await askConfirm(t("sets.deleteAsk"), t("common.delete")))) return; state.sets = state.sets.filter((x) => x.id !== del.dataset.setDel); persistSets(); renderActiveView(); }
 });
 
-function renderExploreView(root) {
-  root.innerHTML = `<section class="panel"><div class="hd"><div><h1>${t("explore.title")}</h1></div></div>
-    <p class="dim" style="max-width:62ch;margin:16px 0">${t("explore.text")}</p>
-    <dl class="kv" style="max-width:720px"><dt>${t("explore.local")}</dt><dd>${t("explore.localText")}</dd><dt>${t("explore.external")}</dt><dd>${t("explore.externalText")}</dd><dt>${t("explore.journey")}</dt><dd>${t("explore.journeyText")}</dd></dl></section>`;
+// the original Explore text (local similarity / external discovery / sonic journey status) is kept: it is the "About" block of the new workspace
+function exploreAboutHtml() {
+  return `<div class="label" style="margin-top:12px">${t("explore.title")}</div><p class="dim" style="max-width:62ch;margin:8px 0 16px">${t("explore.text")}</p>
+    <dl class="kv" style="max-width:720px"><dt>${t("explore.local")}</dt><dd>${t("explore.localText")}</dd><dt>${t("explore.external")}</dt><dd>${t("explore.externalText")}</dd><dt>${t("explore.journey")}</dt><dd>${t("explore.journeyText")}</dd></dl>`;
 }
 
 /* ---------------- settings ---------------- */

@@ -372,3 +372,5 @@ button.tpill:hover { background: var(--surface-3); border-color: var(--text-2); 
 .smartrow { margin-top: var(--s3); } .smartrow .label { display: block; margin-bottom: 6px; } .kchip { padding: 2px 8px; font-family: var(--mono); font-size: 11px; }
 .rbline { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); border-top: 1px solid var(--border); }
 .spk { position: relative; height: 48px; } .spk svg { width: 100%; height: 48px; display: block; } .spk-over { position: absolute; inset: 0; }
+
+.bridgechip { display: inline-grid; gap: 1px; border: 1px solid var(--border-strong); border-radius: var(--r-md); padding: 6px 10px; cursor: pointer; background: var(--surface-2); max-width: 220px; } .bridgechip small { font-family: var(--mono); font-size: 10px; color: var(--text-3); } .bridgechip.end { border-color: var(--text-2); }

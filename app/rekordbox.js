@@ -104,3 +104,37 @@ async function rbAttachFiles(files) {
   endImport(); document.getElementById("analyzeProgress").classList.add("hidden"); persistRb(); persistLibrary(); renderActiveView(); toast(t("import.summaryOk", { n: ok }));
 }
 function rbForget(id) { state.rb.sources = state.rb.sources.filter((s) => s.id !== id); state.library.forEach((l) => { if (l.rekordbox && l.rekordbox.signature === id) delete l.rekordbox; }); persistRb(); persistLibrary(); }
+
+/* ---- two-way exchange with Rekordbox ----
+ * IN : Rekordbox "Export Collection in xml format" -> a.to.b (desktop remembers the file: one click to refresh)
+ * OUT: every a.to.b set as a playlist in ONE XML file (folder "a.to.b"); point Rekordbox's "Imported Library" at it and press Reload.
+ * a.to.b never opens or writes Rekordbox's own database. */
+function rbAllSetsForExport() {
+  const sets = state.sets.map((s) => ({ name: s.name, ids: s.trackIds, manual: s.manualMix || {} }));
+  const cs = state.currentSet; if (cs.trackIds.length && !state.sets.some((s) => s.id && s.id === cs.id)) sets.push({ name: cs.name, ids: cs.trackIds, manual: cs.manualMix || {} });
+  return sets.map((s) => ({ name: s.name, tracks: s.ids.map(findTrack).filter(Boolean), manual: s.manual })).filter((s) => s.tracks.length);
+}
+function rbBuildAllXml() {
+  const sets = rbAllSetsForExport(); if (!sets.length) return null;
+  const playlists = sets.map((s) => { const tr = s.tracks; return { name: s.name, tracks: tr.map(exportTrack), transitions: exportTransitions(tr, s.manual) }; });
+  return { xml: SetExport.rekordboxPlaylistsXml(playlists, { folder: "a.to.b", baseDir: exportBaseDir(), cues: exportOpts.cues, sourceCues: exportOpts.sourceCues, version: APP_VERSION }), sets: sets.length, tracks: new Set(sets.flatMap((s) => s.tracks.map((x) => x.id))).size };
+}
+async function rbExportAll({ pickNew = false, silent = false } = {}) {
+  const built = rbBuildAllXml(); if (!built) { if (!silent) toast(t("rb.exch.noSets")); return false; }
+  if (rbDesktop()) {
+    const P = await atobDesktop.rekordbox.paths(); let path = P.exportPath;
+    if (!path || pickNew) { if (silent) return false; path = await atobDesktop.rekordbox.pickSave("a.to.b.xml"); if (!path) return false; }
+    await atobDesktop.rekordbox.writeText(path, built.xml);
+    if (!silent) toast(t("rb.exch.written", { sets: built.sets, tracks: built.tracks }));
+    state.rbExch = { ...(state.rbExch || {}), exportPath: path, at: Date.now() }; if (state.tab === "library" && state.libSection === "rekordbox") renderActiveView(); return true;
+  }
+  downloadText(built.xml, "a.to.b playlists.xml", "application/xml"); toast(t("rb.exch.downloaded", { sets: built.sets, tracks: built.tracks })); return true;
+}
+async function rbAutoExport() { if (!rbDesktop()) return; try { const P = await atobDesktop.rekordbox.paths(); if (P.auto && P.exportPath) await rbExportAll({ silent: true }); } catch (e) { console.warn("rekordbox auto export", e); } }
+async function rbImportFromRemembered(pickNew) {
+  if (!rbDesktop()) { rbFileInput.click(); return; }
+  const P = await atobDesktop.rekordbox.paths(); let path = P.importPath;
+  if (!path || pickNew || !P.importExists) { path = await atobDesktop.rekordbox.pickXml(); if (!path) return; }
+  const text = await atobDesktop.rekordbox.readText(path);
+  await rbLoadFile({ name: path.split(/[\\/]/).pop(), text: async () => text });
+}

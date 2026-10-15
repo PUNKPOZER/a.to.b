@@ -9,9 +9,9 @@ function exportTrack(tr) {
     durationSec: tr.durationSec, bpm: tr.bpm, key: tr.key, format: tr.format, sampleRate: tr.sampleRate, sizeBytes: tr.sizeBytes || null,
     grid: g && g.kind === "analyzed" ? { first: g.downbeats[0], bpm: tr.bpm } : null };   // only an analysed grid is exported as a beat grid
 }
-function exportTransitions(tracks) {
+function exportTransitions(tracks, manualMix) {
   return tracks.slice(0, -1).map((a, i) => {
-    const tr = transitionOf(a, tracks[i + 1]), g = tr.guide; if (!g || !g.available) return null;
+    const tr = transitionOf(a, tracks[i + 1], manualMix), g = tr.guide; if (!g || !g.available) return null;
     return { mixOutTime: g.mixOut.time, mixInTime: g.mixIn.time, bars: g.bars, type: g.type.key, compatibility: tr.compat.overall, confidence: g.confidence.level, confidenceLabel: t("conf." + g.confidence.level).toLowerCase(), manual: g.manual,
       mixOut: { section: g.mixOut.section ? secLabel(g.mixOut.section) : null, bar: g.mixOut.bar }, mixIn: { section: g.mixIn.section ? secLabel(g.mixIn.section) : null, bar: g.mixIn.bar } };
   });

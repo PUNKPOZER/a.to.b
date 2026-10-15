@@ -69,9 +69,23 @@ function rbNodeHtml(src, n, depth) {
   return `<div class="rbline" style="padding-left:${depth * 18}px"><div class="batchmain" style="cursor:default"><b>${UI.esc(n.name)}</b><span class="mono dim">${t("rb.analyzedOf", { a: done, n: ids.length })}</span></div>
     <div class="toolbar"><button class="btn sm" data-rbact="set:${UI.esc(src.id)}:${UI.esc(n.id)}" ${done ? "" : "disabled"}>${t("rb.openAsSet")}</button><button class="btn sm" data-rbact="crate:${UI.esc(src.id)}:${UI.esc(n.id)}" ${done ? "" : "disabled"}>${t("add.crate")}</button><button class="btn sm" data-rbact="smart:${UI.esc(src.id)}:${UI.esc(n.id)}" ${done ? "" : "disabled"}>${UI.icon("bolt")}${t("hist.smart")}</button>${done < ids.length && rbDesktop() ? `<button class="btn sm" data-rbact="analyze:${UI.esc(src.id)}:${UI.esc(n.id)}">${t("rb.analyze")}</button>` : ""}</div></div>`;
 }
+let rbPaths = null;
+async function rbRefreshPaths() { if (rbDesktop()) { try { rbPaths = await atobDesktop.rekordbox.paths(); } catch (e) { rbPaths = null; } if (state.tab === "library" && state.libSection === "rekordbox") { const el = document.getElementById("rbExchange"); if (el) el.outerHTML = rbExchangeHtml(); } } }
+function rbExchangeHtml() {
+  const P = rbPaths || {}, sets = rbAllSetsForExport(), desk = rbDesktop(), short = (p) => (p ? UI.esc(p.length > 58 ? "…" + p.slice(-57) : p) : "");
+  return `<div class="rbexch" id="rbExchange">
+    <div class="rbcard"><div class="label">${t("rb.exch.in")}</div><b>Rekordbox → a.to.b</b><p class="dim">${t("rb.exch.inText")}</p>
+      ${desk && P.importPath ? `<div class="mono faint" style="margin-bottom:8px">${short(P.importPath)}${P.importExists ? "" : " · " + t("rb.exch.gone")}</div>` : ""}
+      <div class="toolbar"><button class="btn primary" id="rbPick">${UI.icon("download")}${t("rb.importXml")}</button>${desk && P.importPath && P.importExists ? `<button class="btn" id="rbRefresh">${t("rb.exch.refresh")}</button>` : ""}</div></div>
+    <div class="rbcard"><div class="label">${t("rb.exch.out")}</div><b>a.to.b → Rekordbox</b><p class="dim">${t("rb.exch.outText", { n: sets.length })}</p>
+      ${desk && P.exportPath ? `<div class="mono faint" style="margin-bottom:8px">${short(P.exportPath)}</div>` : ""}
+      <div class="toolbar"><button class="btn primary" id="rbExportAll" ${sets.length ? "" : "disabled"}>${UI.icon("upload")}${desk && P.exportPath ? t("rb.exch.update") : t("rb.exch.exportAll", { n: sets.length })}</button>${desk && P.exportPath ? `<button class="btn" id="rbExportNew">${t("rb.exch.otherFile")}</button>` : ""}</div>
+      ${desk ? `<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-top:10px"><input type="checkbox" id="rbAuto" ${P.auto ? "checked" : ""} style="width:auto"> ${t("rb.exch.auto")}</label>` : ""}
+      <details style="margin-top:10px"><summary class="label" style="cursor:pointer">${t("exp.guideTitle")}</summary><ol class="mono dim" style="line-height:1.6;padding-left:18px">${[1, 2, 3, 4, 5].map((n) => `<li>${t("exp.guide." + n)}</li>`).join("")}</ol></details></div></div>`;
+}
 function rekordboxSection() {
-  const head = `<div class="hd" style="margin-top:12px"><div><h1>${t("lib.sec.rekordbox")}</h1><div class="mono dim" style="margin-top:6px">${t("rb.sub")}</div></div>
-    <div class="toolbar"><button class="btn primary" id="rbPick">${UI.icon("download")}${t("rb.importXml")}</button></div></div>`;
+  if (rbPaths === null && rbDesktop()) rbRefreshPaths();
+  const head = `<div class="hd" style="margin-top:12px"><div><h1>${t("lib.sec.rekordbox")}</h1><div class="mono dim" style="margin-top:6px">${t("rb.sub")}</div></div></div>${rbExchangeHtml()}`;
   if (!state.rb.sources.length) return head + `<div class="empty"><b>${t("rb.emptyTitle")}</b>${t("rb.emptyText")}</div><details style="margin-top:12px"><summary class="label" style="cursor:pointer">${t("rb.howExport")}</summary><ol class="mono dim" style="line-height:1.6;padding-left:18px">${[1, 2, 3].map((n) => `<li>${t("rb.howExport." + n)}</li>`).join("")}</ol></details>`;
   return head + state.rb.sources.map((src) => {
     const all = Object.keys(src.tracks), pend = rbPendingIds(src), done = all.length - pend.length;
@@ -82,7 +96,10 @@ function rekordboxSection() {
 }
 document.addEventListener("click", async (e) => {
   if (!e.target.closest("#libraryRoot")) return;
-  if (e.target.closest("#rbPick")) { rbFileInput.click(); return; }
+  if (e.target.closest("#rbPick")) { rbDesktop() ? rbImportFromRemembered(true) : rbFileInput.click(); return; }
+  if (e.target.closest("#rbRefresh")) { rbImportFromRemembered(false); return; }
+  if (e.target.closest("#rbExportAll")) { await rbExportAll(); await rbRefreshPaths(); return; }
+  if (e.target.closest("#rbExportNew")) { await rbExportAll({ pickNew: true }); await rbRefreshPaths(); return; }
   if (e.target.closest("#rbAttach")) { rbFolderInput.click(); return; }
   const fold = e.target.closest("[data-rbfold]"); if (fold) { const k = fold.dataset.rbfold; rbOpenNodes.has(k) ? rbOpenNodes.delete(k) : rbOpenNodes.add(k); renderActiveView(); return; }
   const a = e.target.closest("[data-rbact]"); if (!a) return;
@@ -95,3 +112,4 @@ document.addEventListener("click", async (e) => {
   else if (k === "set") { state.currentSet = Object.assign(newSet(node ? node.name : src.name), { trackIds: lib }); persistCurrentSet(); if (lib.length < ids.length) toast(t("rb.setPartial", { a: lib.length, n: ids.length })); setActiveTab("setbuilder"); }
   else if (k === "smart") openSmartBuild({ type: "ids", ids: lib, label: node ? node.name : src.name });
 });
+document.addEventListener("change", async (e) => { if (e.target.id === "rbAuto" && rbDesktop()) { await atobDesktop.rekordbox.setAuto(e.target.checked); await rbRefreshPaths(); } });

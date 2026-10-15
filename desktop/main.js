@@ -50,6 +50,13 @@ function serveLibrary(req, res, relPath) {
 // Rekordbox XML gives absolute paths: check which exist and read a file the user chose to analyze (audio files only)
 ipcMain.handle("rb:exists", (_e, paths) => { const o = {}; for (const p of (paths || []).slice(0, 50000)) { try { o[p] = fs.existsSync(p) && fs.statSync(p).isFile(); } catch (e) { o[p] = false; } } return o; });
 ipcMain.handle("rb:read", async (_e, p) => { if (!AUDIO_EXT.test(String(p))) throw new Error("not an audio file"); return fs.promises.readFile(p); });
+// exchange files: the XML a.to.b reads from Rekordbox and the XML it writes for Rekordbox (paths are remembered)
+ipcMain.handle("rb:paths", () => { const s = readSettings(); return { importPath: s.rbImportPath || null, exportPath: s.rbExportPath || null, importExists: !!(s.rbImportPath && fs.existsSync(s.rbImportPath)), exportExists: !!(s.rbExportPath && fs.existsSync(s.rbExportPath)), auto: !!s.rbAutoExport }; });
+ipcMain.handle("rb:pickXml", async () => { const r = await dialog.showOpenDialog(win, { properties: ["openFile"], filters: [{ name: "Rekordbox XML", extensions: ["xml"] }] }); if (r.canceled || !r.filePaths[0]) return null; writeSettings({ ...readSettings(), rbImportPath: r.filePaths[0] }); return r.filePaths[0]; });
+ipcMain.handle("rb:readText", (_e, p) => { if (!/\.xml$/i.test(String(p))) throw new Error("not an xml file"); return fs.readFileSync(p, "utf8"); });
+ipcMain.handle("rb:pickSave", async (_e, def) => { const r = await dialog.showSaveDialog(win, { defaultPath: def || "a.to.b.xml", filters: [{ name: "Rekordbox XML", extensions: ["xml"] }] }); if (r.canceled || !r.filePath) return null; writeSettings({ ...readSettings(), rbExportPath: r.filePath }); return r.filePath; });
+ipcMain.handle("rb:writeText", (_e, p, text) => { if (!/\.xml$/i.test(String(p))) throw new Error("not an xml file"); fs.writeFileSync(p, text, "utf8"); return true; });
+ipcMain.handle("rb:setAuto", (_e, on) => { writeSettings({ ...readSettings(), rbAutoExport: !!on }); return !!on; });
 ipcMain.handle("library:get", () => ({ dir: libraryDir }));
 ipcMain.handle("library:pick", async () => {
   const r = await dialog.showOpenDialog(win, { properties: ["openDirectory"], title: "a.to.b — music folder" });

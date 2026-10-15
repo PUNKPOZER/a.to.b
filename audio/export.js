@@ -117,18 +117,20 @@
   const kindOf = (t) => ({ MP3: "MP3 File", WAV: "WAV File", FLAC: "FLAC File", M4A: "M4A File", AIFF: "AIFF File", AIF: "AIFF File" }[(t.format || "").toUpperCase()] || (t.format ? t.format + " File" : ""));
   const num = (x, d) => (x == null || !isFinite(x) ? "" : (Math.round(x * 10 ** d) / 10 ** d).toString());
 
-  function rekordboxXml(tracks, transitions, opts = {}) {
+  // playlists: [{ name, tracks, transitions }]. One playlist = the classic single-set file; several are written under a folder node
+  // (`opts.folder`), their tracks merged into one collection (a track used in two sets appears once).
+  function rekordboxPlaylistsXml(playlists, opts = {}) {
     const marks = opts.cues !== false, grid = !!opts.beatGrid, version = opts.version || "0.5.0";
-    const uniq = []; const idOf = new Map();
-    tracks.forEach((t) => { if (!idOf.has(t.id)) { idOf.set(t.id, uniq.length + 1); uniq.push(t); } });
+    const uniq = [], idOf = new Map();
+    playlists.forEach((pl) => pl.tracks.forEach((t) => { if (!idOf.has(t.id)) { idOf.set(t.id, uniq.length + 1); uniq.push(t); } }));
     const lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<DJ_PLAYLISTS Version="1.0.0">', `  <PRODUCT Name="${xmlEsc(APP)}" Version="${xmlEsc(version)}" Company="punk pozer"/>`, `  <COLLECTION Entries="${uniq.length}">`];
-    // memory cues for the transitions, attached to the track they belong to
+    // memory cues for the transitions, attached to the track they belong to (the same mark from two sets is written once)
     const cues = new Map();
-    if (marks && transitions) tracks.forEach((a, i) => {
-      const tr = transitions[i], b = tracks[i + 1]; if (!tr || !b) return;
-      const add = (t, nm, time) => { if (time == null) return; if (!cues.has(t.id)) cues.set(t.id, []); cues.get(t.id).push({ name: nm, time }); };
+    if (marks) playlists.forEach((pl) => pl.tracks.forEach((a, i) => {
+      const tr = pl.transitions && pl.transitions[i], b = pl.tracks[i + 1]; if (!tr || !b) return;
+      const add = (t, nm, time) => { if (time == null) return; if (!cues.has(t.id)) cues.set(t.id, []); const l = cues.get(t.id); if (!l.some((c) => Math.abs(c.time - time) < 0.01 && c.name === nm)) l.push({ name: nm, time }); };
       add(a, `${APP} out → ${b.title}`.slice(0, 60), tr.mixOutTime); add(b, `${APP} in ← ${a.title}`.slice(0, 60), tr.mixInTime);
-    });
+    }));
     for (const t of uniq) {
       const p = pathOf(t, opts.baseDir);
       const attrs = [["TrackID", idOf.get(t.id)], ["Name", t.title], ["Artist", t.artist && t.artist !== "Unknown artist" ? t.artist : ""], ["Album", t.album || ""], ["Genre", t.genre || ""], ["Kind", kindOf(t)],
@@ -145,12 +147,14 @@
       lines.push(`    <TRACK ${attrs.map(([k, v]) => `${k}="${xmlEsc(v)}"`).join(" ")}${kids.length ? ">" : "/>"}`);
       if (kids.length) { lines.push(...kids, "    </TRACK>"); }
     }
-    lines.push("  </COLLECTION>", "  <PLAYLISTS>", '    <NODE Type="0" Name="ROOT" Count="1">',
-      `      <NODE Name="${xmlEsc(opts.name || APP)}" Type="1" KeyType="0" Entries="${tracks.length}">`);
-    tracks.forEach((t) => lines.push(`        <TRACK Key="${idOf.get(t.id)}"/>`));
-    lines.push("      </NODE>", "    </NODE>", "  </PLAYLISTS>", "</DJ_PLAYLISTS>");
+    lines.push("  </COLLECTION>", "  <PLAYLISTS>", '    <NODE Type="0" Name="ROOT" Count="1">');
+    const pls = (ind) => playlists.forEach((pl) => { lines.push(`${ind}<NODE Name="${xmlEsc(pl.name || APP)}" Type="1" KeyType="0" Entries="${pl.tracks.length}">`); pl.tracks.forEach((t) => lines.push(`${ind}  <TRACK Key="${idOf.get(t.id)}"/>`)); lines.push(`${ind}</NODE>`); });
+    if (opts.folder) { lines.push(`      <NODE Name="${xmlEsc(opts.folder)}" Type="0" Count="${playlists.length}">`); pls("        "); lines.push("      </NODE>"); }
+    else pls("      ");
+    lines.push("    </NODE>", "  </PLAYLISTS>", "</DJ_PLAYLISTS>");
     return lines.join("\n") + "\n";
   }
+  function rekordboxXml(tracks, transitions, opts = {}) { return rekordboxPlaylistsXml([{ name: opts.name, tracks, transitions }], opts); }
 
   const FORMATS = {
     rekordbox: { ext: "xml", mime: "application/xml", build: (c) => rekordboxXml(c.tracks, c.transitions, c) },
@@ -159,5 +163,5 @@
     sheet: { ext: "txt", mime: "text/plain", build: (c) => transitionSheetText(transitionSheet(c.tracks, c.transitions, c), c) },
     sheetjson: { ext: "json", mime: "application/json", build: (c) => { const sh = transitionSheet(c.tracks, c.transitions, c); sh.rows.forEach((r) => delete r.confidenceLabel); return JSON.stringify(sh, null, 2) + "\n"; } },
   };
-  return { APP, m3u8, tracklist, transitionSheet, transitionSheetText, rekordboxXml, rekordboxLocation, joinPath, pathOf, validate, tonality, FORMATS, mmss, hhmmss };
+  return { APP, m3u8, tracklist, transitionSheet, transitionSheetText, rekordboxXml, rekordboxPlaylistsXml, rekordboxLocation, joinPath, pathOf, validate, tonality, FORMATS, mmss, hhmmss };
 });

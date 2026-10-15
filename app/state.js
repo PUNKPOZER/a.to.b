@@ -73,9 +73,9 @@ const transitionCache = new SetTools.TransitionCache((a, b) => {
   return DjEngine.djCompat(A, B, state.weights.dj, KEY_WEIGHTS, { bpmReliability: [A.bpmReliability, B.bpmReliability] });
 });
 const guideCache = new SetTools.TransitionCache((a, b) => Transition.guide(trackToEngineShape(a), trackToEngineShape(b), { compat: transitionCache.get(a, b) }));
-function transitionOf(a, b) {
-  const key = a.id + "|" + b.id;
-  return { compat: transitionCache.get(a, b), get guide() { const base = guideCache.get(a, b), man = state.currentSet.manualMix[key]; return man ? Transition.applyManual(base, trackToEngineShape(a), trackToEngineShape(b), man) : base; } };
+function transitionOf(a, b, manualMix) {
+  const key = a.id + "|" + b.id, mm = manualMix || state.currentSet.manualMix;
+  return { compat: transitionCache.get(a, b), get guide() { const base = guideCache.get(a, b), man = mm[key]; return man ? Transition.applyManual(base, trackToEngineShape(a), trackToEngineShape(b), man) : base; } };
 }
 const invalidateTransitions = () => { transitionCache.invalidate(); guideCache.invalidate(); };
 function touchTrack(id) { // analysis / BPM / key / genre changed: drop everything derived from this track

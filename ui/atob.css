@@ -374,3 +374,6 @@ button.tpill:hover { background: var(--surface-3); border-color: var(--text-2); 
 .spk { position: relative; height: 48px; } .spk svg { width: 100%; height: 48px; display: block; } .spk-over { position: absolute; inset: 0; }
 
 .bridgechip { display: inline-grid; gap: 1px; border: 1px solid var(--border-strong); border-radius: var(--r-md); padding: 6px 10px; cursor: pointer; background: var(--surface-2); max-width: 220px; } .bridgechip small { font-family: var(--mono); font-size: 10px; color: var(--text-3); } .bridgechip.end { border-color: var(--text-2); }
+
+.rbexch { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s4); margin: var(--s4) 0; } @media (max-width: 900px) { .rbexch { grid-template-columns: 1fr; } }
+.rbcard { border: 1px solid var(--border-strong); border-radius: var(--r-md); padding: var(--s4); background: var(--bg); } .rbcard b { display: block; font-size: 16px; margin: 4px 0 6px; } .rbcard p { margin: 0 0 12px; font-size: 13px; }

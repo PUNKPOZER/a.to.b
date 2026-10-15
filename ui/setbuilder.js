@@ -304,6 +304,7 @@ function saveCurrentSet() {
   if (ex) Object.assign(ex, copy, { updatedAt: Date.now() });
   else { cur().id = uid("s_"); copy.id = cur().id; copy.createdAt = copy.updatedAt = Date.now(); state.sets.push(copy); }
   persistSets(); saveSet(); toast(t("sb.saved", { name: cur().name })); renderActiveView();
+  if (typeof rbAutoExport === "function") rbAutoExport();   // keeps the Rekordbox exchange file current when the user switched that on
 }
 
 /* ---- events ---- */

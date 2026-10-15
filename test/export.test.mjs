@@ -74,3 +74,17 @@ test("2.0: original Rekordbox cues, DateAdded and trusted paths survive an expor
   const v = X.validate(tracks, { baseDir: "/Music" });
   assert.ok(v.ok, "assumed paths do not block"); assert.deepEqual(v.issues.map((i) => [i.code, i.info === true]), [["pathAssumed", true]]);
 });
+
+test("2.0: several sets in one Rekordbox file: shared collection, one folder, every playlist in order", async () => {
+  const req = (await import("node:module")).createRequire(import.meta.url), X = req("../audio/export.js"), R = req("../audio/rekordbox-import.js");
+  const tr = (id, bpm) => ({ id, artist: "A" + id, title: "T" + id, durationSec: 200, bpm, key: { tonic: "A", mode: "min", camelot: "8A" }, filename: id + ".mp3", path: "/M/" + id + ".mp3", format: "MP3" });
+  const a = tr("a", 120), b = tr("b", 122), c = tr("c", 124), mix = { mixOutTime: 150, mixInTime: 8, bars: 16, type: "long_blend" };
+  const xml = X.rekordboxPlaylistsXml([{ name: "Set 1", tracks: [a, b, c], transitions: [mix, mix] }, { name: "Set 2", tracks: [c, a], transitions: [mix] }], { folder: "a.to.b" });
+  const r = R.parse(xml); assert.ok(r.ok);
+  assert.equal(r.tracks.size, 3, "a track used in two sets appears once"); assert.equal(r.playlistCount, 2);
+  assert.equal(r.tree[0].type, "folder"); assert.equal(r.tree[0].name, "a.to.b");
+  const pls = R.flattenPlaylists(r.tree), names = pls.map((p) => p.name); assert.deepEqual(names, ["Set 1", "Set 2"]);
+  const art = (p) => p.trackIds.map((id) => r.tracks.get(id).artist); assert.deepEqual(art(pls[0]), ["Aa", "Ab", "Ac"]); assert.deepEqual(art(pls[1]), ["Ac", "Aa"]);
+  const cuesA = r.tracks.get(pls[0].trackIds[0]).cues; assert.ok(cuesA.length >= 2, "memory cues from both sets, no exact duplicates");
+  assert.equal(X.rekordboxXml([a], [null], { name: "One" }).includes('Name="a.to.b" Type="0"'), false, "the single-set file has no folder");
+});

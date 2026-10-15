@@ -75,10 +75,11 @@ function renderSetBuilderView(root) {
       <div class="controls" style="margin-top:20px">
         <div><span class="lab">${t("sb.length")}, ${t("unit.min")}</span>${UI.seg(SB_LENGTHS.map((m) => [m, String(m)]), b.length, "data-blen")}</div>
         <div><span class="lab">${t("sb.curve")}${UI.help("curve")}</span><select id="sbCurve">${curves.map(([k]) => `<option value="${k}" ${b.curve === k ? "selected" : ""}>${t("curve." + k)}</option>`).join("")}<option value="custom" ${b.curve === "custom" ? "selected" : ""}>${t("curve.custom")}</option></select></div>
-        <div><span class="lab">${t("sb.mode")}${UI.help("mode")}</span>${UI.seg([["auto", t("sb.modeAuto")], ["manual", t("sb.modeManual")]], b.mode, "data-bmode")}</div>
+        <div><span class="lab">${t("sb.mode")}${UI.help("mode")}</span>${UI.seg([["auto", t("sb.modeAuto")], ["manual", t("sb.modeManual")], ["smart", t("sb.modeSmart")]], b.mode, "data-bmode")}</div>
         <div><span class="lab">${t("sb.character")}${UI.help("character")}</span>${UI.seg([["safe", t("sb.charSafe")], ["balanced", t("sb.charBalanced")], ["contrast", t("sb.charContrast")]], b.character || "balanced", "data-bchar")}</div>
         <div class="buildrow"><button class="btn primary" id="sbBuild">${t("sb.build")}</button><button class="btn" id="sbReroll" data-tip="${UI.esc(t("sb.rerollTip"))}">${t("sb.reroll")}</button>
           <button class="btn" id="sbOptimize" ${tracks.length > 2 ? "" : "disabled"} data-tip="${UI.esc(t("sb.optimizeTip"))}">${UI.icon("bolt")}${t("sb.optimize")}</button></div></div>
+      ${b.mode === "smart" ? smartPanelHtml() + smartSummaryHtml(tracks) : ""}
       <label style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text-2);margin-bottom:12px"><input type="checkbox" id="sbKeep" ${b.keepFirst ? "checked" : ""} style="width:auto"> ${t("sb.keepFirst")}</label>
       <div class="curvebox"><div style="display:flex;justify-content:space-between;margin-bottom:6px;gap:12px;flex-wrap:wrap"><span class="label">${t("sb.energyLegend")}</span><span class="mono faint">${t("sb.dragPoints")}</span></div>${curveSvg(tracks)}</div>
       ${tracks.length ? setStatsHtml(tracks, analysis) : ""}</section>
@@ -87,6 +88,11 @@ function renderSetBuilderView(root) {
   sbNote = "";
   if (tracks.length > 1) prepareSetGrids();   // measure the missing bar grids in the background
 }
+// real running time: sum of the tracks minus the overlap of each transition (measured from the grid where one exists)
+function realDurationHtml(tracks) {
+  const d = SmartBuild.setDuration(tracks.map(trackToEngineShape), guideOverlap);
+  return `${d.estimated ? "≈ " : ""}${fmtDur(d.effectiveSec)}<div class="mono faint" style="font-size:10px;margin-top:2px;letter-spacing:0">${t("smart.sum")} ${fmtClock(d.sumSec)}</div>`;
+}
 function setStatsHtml(tracks, an) {
   const bpms = tracks.map((x) => x.bpm), sc = an && an.score;
   const comp = sc ? Object.entries(sc.components).map(([k, v]) => `<div><div class="l"><span>${t("score.comp." + k)}</span><span class="num">${Math.round(v)}</span></div>${UI.bar(v, UI.barTone(v))}</div>`).join("") : "";
@@ -94,7 +100,7 @@ function setStatsHtml(tracks, an) {
   const list = (arr, cls) => arr.map((x) => `<li class="${cls}">${UI.esc(t("setscore." + x.code, { n: x.index != null ? x.index + 1 : "", m: x.index != null ? x.index + 2 : "", s: x.score, ...pv(x) }))}</li>`).join("");
   return `<div class="setstats">
       <div class="stat"><div class="k">${t("sb.tracks")}</div><div class="v">${tracks.length}</div></div>
-      <div class="stat"><div class="k">${t("sb.duration")}${UI.help("duration")}</div><div class="v">${fmtDur(an ? an.durationSec : effectiveSeconds(tracks))}</div></div>
+      <div class="stat"><div class="k">${t("sb.duration")}${UI.help("duration")}</div><div class="v">${realDurationHtml(tracks, an)}</div></div>
       <div class="stat"><div class="k">${t("sb.bpmRange")}</div><div class="v">${Math.min(...bpms).toFixed(0)}–${Math.max(...bpms).toFixed(0)}</div></div>
       <div class="stat"><div class="k">${t("sb.avgTransition")}</div><div class="v">${an && an.avgTransition != null ? Math.round(an.avgTransition) + "%" : UI.NA}</div></div></div>
     ${sc ? `<div class="scorebox"><div><div class="label">${t("setscore.title")}${UI.help("setscore")}</div><div class="big ${UI.tone(sc.total)} num">${sc.total}</div><span class="badge ${sc.confidence}" style="margin-top:8px">${t("conf." + sc.confidence)}</span></div>

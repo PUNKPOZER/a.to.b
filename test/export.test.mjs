@@ -60,3 +60,17 @@ test("validation: missing location, duplicates and unsupported formats are repor
   assert.ok(codes.includes("noLocation") && codes.includes("duplicate") && codes.includes("unsupportedFormat")); assert.equal(v.ok, false);
   assert.equal(E.validate(tracks, { baseDir: "/m" }).ok, true);
 });
+
+test("2.0: original Rekordbox cues, DateAdded and trusted paths survive an export; assumed paths are flagged", async () => {
+  const req = (await import("node:module")).createRequire(import.meta.url), X = req("../audio/export.js"), R = req("../audio/rekordbox-import.js");
+  const tracks = [
+    { id: "a", artist: "A", title: "T", durationSec: 200, bpm: 124, key: { tonic: "A", mode: "min", camelot: "8A" }, filename: "t.mp3", path: "/Users/dj/Music/t.mp3", pathSource: "xml", sourceDateAdded: new Date(2026, 9, 12).getTime(), sourceCues: [{ name: "Drop", type: 0, start: 32.5, num: 0 }, { name: "", type: 4, start: 64, end: 72, num: -1 }] },
+    { id: "b", artist: "B", title: "U", durationSec: 180, bpm: 128, key: { tonic: "C", mode: "maj", camelot: "8B" }, filename: "u.mp3", relPath: "set/u.mp3", pathSource: "base" },
+  ];
+  const xml = X.rekordboxXml(tracks, [null], { baseDir: "/Music", name: "S" }), p = R.parse(xml), t1 = p.tracks.get("1");
+  assert.ok(p.ok); assert.equal(t1.cues.length, 2); assert.equal(t1.cues[0].num, 0); assert.equal(t1.cues[1].type, 4); assert.equal(t1.cues[1].end, 72);
+  assert.equal(t1.dateAdded, new Date(2026, 9, 12).getTime()); assert.equal(t1.path, "/Users/dj/Music/t.mp3");
+  assert.equal(R.parse(X.rekordboxXml(tracks, [null], { baseDir: "/Music", sourceCues: false })).tracks.get("1").cues.length, 0, "can be switched off");
+  const v = X.validate(tracks, { baseDir: "/Music" });
+  assert.ok(v.ok, "assumed paths do not block"); assert.deepEqual(v.issues.map((i) => [i.code, i.info === true]), [["pathAssumed", true]]);
+});

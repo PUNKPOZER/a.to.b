@@ -11,7 +11,7 @@ const ph = (s) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(","
 const FAMILIES = {
   "col.": ["track", "bpm", "key", "genre", "energy", "sonic", "dj", "status", "added"], "conf.": ["high", "medium", "low", "full", "missing"], "curve.": ["smooth", "buildup", "peak", "wave", "journey", "experimental", "custom"],
   "dfac.": ["tempoFar", "tempoStretch", "keyFar", "keyStep", "rhythmMismatch", "shortOverlap", "energyJump", "lowConfidence", "none"], "diff.": ["easy", "medium", "hard", "experimental"],
-  "dj.": ["tempo", "key", "rhythm", "groove", "energy", "structure", "genre"], "exp.guide.": ["1", "2", "3", "4", "5"], "exp.issue.": ["noFilename", "noLocation", "noDuration", "duplicate", "unsupportedFormat"],
+  "dj.": ["tempo", "key", "rhythm", "groove", "energy", "structure", "genre"], "exp.guide.": ["1", "2", "3", "4", "5"], "exp.issue.": ["noFilename", "noLocation", "noDuration", "duplicate", "unsupportedFormat", "pathAssumed"],
   "exp.f.": ["rekordbox", "m3u8", "txt", "sheet", "sheetjson"], "gconf.": ["gridEstimatedA", "gridEstimatedB", "noSections", "tempoFar", "bpmUncertain", "ok"], "grid.": ["analyzed", "estimated", "local"], "guide.reason.": ["noGrid", "gridTooShort"],
   "help.": ["smart", "tolerance", "pref", "gtype", "similar", "structure", "grid", "bpm", "camelot", "dj", "compare", "curve", "mode", "character", "duration", "setscore", "crate", "next", "guide", "expcues", "expgrid", "expbase", "label"],
   "mixout.": ["outro-start", "phrase-boundary", "last-bars"], "next.": ["safe", "groove", "energyUp", "energyDown", "genreSwitch", "surprise", "safe.tip", "groove.tip", "energyUp.tip", "energyDown.tip", "genreSwitch.tip", "surprise.tip"],

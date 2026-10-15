@@ -11,6 +11,7 @@
   else root.SetExport = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   const APP = "a.to.b";
+  const localDate = (ms) => { const d = new Date(ms); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };   // local calendar day: Rekordbox dates carry no time zone
   const xmlEsc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[c]));
   const mmss = (sec) => { sec = Math.max(0, Math.round(sec)); return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0"); };
   const hhmmss = (sec) => { sec = Math.round(sec); const h = Math.floor(sec / 3600); return (h ? h + ":" : "") + mmss(sec % 3600 + (h ? 0 : 0)); };
@@ -47,9 +48,11 @@
       if (!(t.durationSec > 0)) issues.push({ index: i, id: t.id, code: "noDuration" });
       if (seen.has(t.id)) issues.push({ index: i, id: t.id, code: "duplicate", first: seen.get(t.id) }); else seen.set(t.id, i);
       if (t.format && !/^(MP3|WAV|AIFF?|FLAC|M4A|AAC|ALAC)$/i.test(t.format)) issues.push({ index: i, id: t.id, code: "unsupportedFormat", format: t.format });
+      // a location rebuilt from the folder the user typed is an assumption: Rekordbox may ask to relocate such files
+      if (pathOf(t, opts.baseDir) && t.pathSource === "base") issues.push({ index: i, id: t.id, code: "pathAssumed", info: true });
     });
-    const bad = new Set(issues.filter((x) => x.code !== "duplicate").map((x) => x.index));
-    return { ok: issues.length === 0, issues, needAttention: bad.size, ready: tracks.length - bad.size };
+    const bad = new Set(issues.filter((x) => x.code !== "duplicate" && !x.info).map((x) => x.index));
+    return { ok: issues.filter((x) => !x.info).length === 0, issues, needAttention: bad.size, ready: tracks.length - bad.size };
   }
 
   /* ---------- M3U8 ---------- */
@@ -129,11 +132,15 @@
     for (const t of uniq) {
       const p = pathOf(t, opts.baseDir);
       const attrs = [["TrackID", idOf.get(t.id)], ["Name", t.title], ["Artist", t.artist && t.artist !== "Unknown artist" ? t.artist : ""], ["Album", t.album || ""], ["Genre", t.genre || ""], ["Kind", kindOf(t)],
-        ["Size", t.sizeBytes || ""], ["TotalTime", Math.round(t.durationSec || 0)], ["AverageBpm", num(t.bpm, 2)], ["SampleRate", t.sampleRate || ""], ["Tonality", tonality(t.key)],
+        ["DateAdded", t.sourceDateAdded ? localDate(t.sourceDateAdded) : ""], ["Size", t.sizeBytes || ""], ["TotalTime", Math.round(t.durationSec || 0)], ["AverageBpm", num(t.bpm, 2)], ["SampleRate", t.sampleRate || ""], ["Tonality", tonality(t.key)],
         ["Comments", [t.key && t.key.camelot && t.key.camelot !== "unknown" ? t.key.camelot : "", opts.comment || ""].filter(Boolean).join(" · ")], ["Location", p ? rekordboxLocation(p) : ""]]
         .filter(([, v]) => v !== "" && v != null);
       const kids = [];
       if (grid && t.grid && t.grid.first != null && t.bpm) kids.push(`      <TEMPO Inizio="${num(t.grid.first, 3)}" Bpm="${num(t.bpm, 2)}" Metro="4/4" Battito="1"/>`);
+      if (opts.sourceCues !== false) for (const c of t.sourceCues || []) {   // cues that came from Rekordbox itself, re-emitted as they were read (Type 0 cue, 4 loop; Num -1 = memory, 0-7 = hot cue)
+        if (c.start == null) continue;
+        kids.push(`      <POSITION_MARK Name="${xmlEsc(c.name || "")}" Type="${c.type ?? 0}" Start="${num(c.start, 3)}"${c.end != null ? ` End="${num(c.end, 3)}"` : ""} Num="${c.num ?? -1}"/>`);
+      }
       for (const c of cues.get(t.id) || []) kids.push(`      <POSITION_MARK Name="${xmlEsc(c.name)}" Type="0" Start="${num(c.time, 3)}" Num="-1"/>`); // memory cue
       lines.push(`    <TRACK ${attrs.map(([k, v]) => `${k}="${xmlEsc(v)}"`).join(" ")}${kids.length ? ">" : "/>"}`);
       if (kids.length) { lines.push(...kids, "    </TRACK>"); }

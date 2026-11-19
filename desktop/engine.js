@@ -112,10 +112,29 @@ function syncSources() {
 async function healthy() { try { return (await fetch("http://127.0.0.1:8000/api/health", { signal: AbortSignal.timeout(1500) })).ok; } catch { return false; } }
 
 let proc = null;
+// A previous run of the app can leave its backend behind (force quit, crash, an update replacing the app while it ran). That orphan keeps
+// port 8000 but may no longer answer, so the new run could neither use it nor start its own. Only a process that is OUR engine
+// (its command line points into this engine folder) is ever stopped.
+function killStaleEngine() {
+  const { execFileSync } = require("node:child_process"), mine = home();
+  try {
+    let pids = [];
+    if (process.platform === "win32") {
+      const out = execFileSync("netstat", ["-ano", "-p", "TCP"], { encoding: "utf8" });
+      pids = [...out.matchAll(/^\s*TCP\s+\S+:8000\s+\S+\s+LISTENING\s+(\d+)/gim)].map((m) => m[1]);
+    } else pids = execFileSync("lsof", ["-nP", "-iTCP:8000", "-sTCP:LISTEN", "-t"], { encoding: "utf8" }).split(/\s+/).filter(Boolean);
+    for (const pid of new Set(pids)) {
+      let cmd = "";
+      try { cmd = process.platform === "win32" ? execFileSync("powershell", ["-NoProfile", "-Command", `(Get-CimInstance Win32_Process -Filter 'ProcessId=${+pid}').CommandLine`], { encoding: "utf8" }) : execFileSync("ps", ["-o", "command=", "-p", String(pid)], { encoding: "utf8" }); } catch (e) { continue; }
+      if (cmd.includes(mine) && /uvicorn/.test(cmd)) { try { process.kill(+pid, "SIGKILL"); } catch (e) {} }
+    }
+  } catch (e) { /* nothing listens on the port, or lsof is unavailable */ }
+}
 async function start(origin) {
   if (await healthy()) return "external";
   const p = P();
   if (!isReady()) return null;
+  if (!proc) { killStaleEngine(); await new Promise((r) => setTimeout(r, 400)); }
   try { syncSources(); } catch (e) { /* keep the previous sources */ }
   const st = readState();
   const env = {

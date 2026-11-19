@@ -128,6 +128,12 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(tpl));
 }
 
+// if the backend is not answering (it crashed, or a leftover process blocked the port), start it again — the app should not need a restart
+let watching = null;
+function watchEngine() {
+  if (watching) return;
+  watching = setInterval(async () => { try { if (engine.isReady() && !(await engine.healthy())) await engine.start(origin); } catch (e) {} }, 20000);
+}
 async function createWindow() {
   const port = await startServer();
   origin = `http://127.0.0.1:${port}`;
@@ -144,7 +150,7 @@ async function createWindow() {
 
   if (await maybeStartDevBackend()) return loadApp();
   if (!engine.supported()) return loadApp();           // e.g. Windows: no Essentia build -> local analysis only
-  if (engine.isReady()) { engine.start(origin); return loadApp(); }
+  if (engine.isReady()) { engine.start(origin); watchEngine(); return loadApp(); }
   return runSetup();                                    // first launch: install the engine, then open the app
 }
 

@@ -218,4 +218,5 @@ const I18N_EN = {
   "rb.exch.in": "Import", "rb.exch.inText": "Export your collection or playlists from Rekordbox as XML and bring them in. Playlist structure and order are kept.", "rb.exch.refresh": "Refresh from the same file", "rb.exch.gone": "file not found",
   "rb.exch.out": "Export", "rb.exch.outText": "All your a.to.b sets ({n}) as playlists in one XML file, with transition cues. Open it in Rekordbox as the Imported Library.", "rb.exch.exportAll": "Export all sets ({n})", "rb.exch.update": "Update the Rekordbox file", "rb.exch.otherFile": "Choose another file…",
   "rb.exch.auto": "Update the file automatically whenever a set is saved", "rb.exch.noSets": "There are no sets with tracks to export yet", "rb.exch.written": "Rekordbox file updated: {sets} sets, {tracks} tracks", "rb.exch.downloaded": "Downloaded: {sets} sets, {tracks} tracks",
+  "hist.selectAll": "Select all ({n})", "hist.clearSel": "Clear selection",
 };

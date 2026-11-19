@@ -201,4 +201,5 @@ const I18N_RU = {
   "rb.exch.in": "Импорт", "rb.exch.inText": "Экспортируйте коллекцию или плейлисты из Rekordbox в XML и загрузите сюда. Структура плейлистов и порядок сохраняются.", "rb.exch.refresh": "Обновить из того же файла", "rb.exch.gone": "файл не найден",
   "rb.exch.out": "Экспорт", "rb.exch.outText": "Все ваши сеты a.to.b ({n}) как плейлисты в одном XML-файле, с метками переходов. Укажите его в Rekordbox как Imported Library.", "rb.exch.exportAll": "Экспортировать все сеты ({n})", "rb.exch.update": "Обновить файл для Rekordbox", "rb.exch.otherFile": "Выбрать другой файл…",
   "rb.exch.auto": "Обновлять файл автоматически при сохранении сета", "rb.exch.noSets": "Пока нет сетов с треками для экспорта", "rb.exch.written": "Файл для Rekordbox обновлён: сетов {sets}, треков {tracks}", "rb.exch.downloaded": "Скачано: сетов {sets}, треков {tracks}",
+  "hist.selectAll": "Выбрать все ({n})", "hist.clearSel": "Снять выделение",
 };
